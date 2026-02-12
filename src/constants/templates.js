@@ -1,0 +1,24 @@
+export const TEMPLATES = [
+  { id: 'classic', label: 'Classic', caption: '底部留白经典布局', hasBottomBar: true },
+  { id: 'postcard', label: 'Postcard', caption: '居中排版 + 邮票风格', hasBottomBar: true },
+  { id: 'postcard-note', label: 'Postcard Note', caption: '明信片文案布局', hasBottomBar: true },
+  { id: 'minimal', label: 'Minimal', caption: '文字贴边极简', hasBottomBar: false },
+  { id: 'gallery', label: 'Gallery', caption: '美术馆厚质感画框', hasBottomBar: true },
+  { id: 'cinema', label: 'Cinema', caption: '黑色窄边电影感', hasBottomBar: true },
+  { id: 'noir', label: 'Noir', caption: '高对比黑边', hasBottomBar: true },
+  { id: 'airy', label: 'Airy', caption: '轻盈高亮留白', hasBottomBar: true },
+  { id: 'mono', label: 'Mono', caption: '单行极简信息', hasBottomBar: false },
+  { id: 'caption', label: 'Caption', caption: '底部细线标题', hasBottomBar: true },
+  { id: 'borderline', label: 'Borderline', caption: '细线双边框', hasBottomBar: true },
+  { id: 'editorial', label: 'Editorial', caption: '杂志封面风格', hasBottomBar: true },
+  { id: 'museum', label: 'Museum', caption: '厚框 + 标牌', hasBottomBar: true },
+  { id: 'glassframe', label: 'Glassframe', caption: '透明渐变画框', hasBottomBar: false },
+  { id: 'lagoon', label: 'Lagoon', caption: '渐变底栏航拍风', hasBottomBar: true },
+  { id: 'palette-card', label: 'Palette Card', caption: '色卡展示卡片', hasBottomBar: true },
+  { id: 'floating', label: 'Floating', caption: '悬浮卡片质感', hasBottomBar: true },
+  { id: 'atelier', label: 'Atelier', caption: '工作室质感', hasBottomBar: true },
+  { id: 'monolith', label: 'Monolith', caption: '极简深色块', hasBottomBar: true },
+  { id: 'folio', label: 'Folio', caption: '折页式标题', hasBottomBar: true },
+];
+
+export const TEMPLATE_IDS = TEMPLATES.map((template) => template.id);
