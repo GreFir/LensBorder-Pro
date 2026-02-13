@@ -157,6 +157,12 @@ const fitText = (ctx, text, maxWidth) => {
   return trimmed ? `${trimmed}${suffix}` : '';
 };
 
+const percentOffsetToPx = (percentValue, referenceSize) => {
+  const percent = Number.isFinite(percentValue) ? percentValue : 0;
+  const size = Number.isFinite(referenceSize) ? referenceSize : 0;
+  return (size * percent) / 100;
+};
+
 const buildText = (meta, visibility = {}) => {
   const safeMeta = meta || {};
   const pick = (key) => (visibility[key] ? safeMeta[key] : '');
@@ -1023,7 +1029,7 @@ const drawCreatorSignature = (ctx, layout, config, text, _image, meta = {}) => {
   const infoLine = compact([modelLine, specLine]).join('   ');
   const authorName = artist;
   const authorBio = (config.authorBio || '').toString().trim() || 'Photographer';
-  const metaOffsetY = config.metaOffsetY ?? 0;
+  const metaOffsetY = percentOffsetToPx(config.metaOffsetY, canvasHeight);
 
   const radius = Math.max(0, config.imageRadius || 0);
   if (radius > 0) {
@@ -1145,7 +1151,7 @@ const drawGlassBrand = (ctx, layout, config, text, image, meta = {}) => {
   const opacity = Math.min(0.95, (config.glassOpacity ?? 0.35) + 0.18);
   const blur = Math.max(8, (config.glassBlur ?? 18) * 1.35);
   const radius = Math.max(0, config.imageRadius || 0);
-  const metaOffsetY = config.metaOffsetY ?? 0;
+  const metaOffsetY = percentOffsetToPx(config.metaOffsetY, canvasHeight);
 
   ctx.save();
   ctx.beginPath();

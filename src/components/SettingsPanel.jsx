@@ -728,13 +728,13 @@ export default function SettingsPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                   <span>元数据上下偏移</span>
-                  <span className="font-mono text-slate-400">{Math.round(config.metaOffsetY || 0)}px</span>
+                  <span className="font-mono text-slate-400">{(config.metaOffsetY || 0).toFixed(1)}%</span>
                 </div>
                 <input
                   type="range"
-                  min="-220"
-                  max="220"
-                  step="1"
+                  min="-120"
+                  max="120"
+                  step="0.5"
                   value={config.metaOffsetY || 0}
                   onChange={(event) => updateConfig('metaOffsetY', parseFloat(event.target.value))}
                   className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
