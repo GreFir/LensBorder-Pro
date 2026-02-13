@@ -9,6 +9,25 @@ import { getPaletteById } from './constants/palettes';
 import { extractImagePalette } from './utils/colorUtils';
 
 const PREVIEW_MAX_DIMENSION = 2000;
+const THEME_STORAGE_KEY = 'lensborder-theme-mode';
+
+const getSystemDarkPreference = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia &&
+  window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+const getInitialThemeMode = () => {
+  if (typeof window === 'undefined') return 'system';
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark' || stored === 'system') {
+      return stored;
+    }
+  } catch (error) {
+    console.warn('Read theme mode failed:', error);
+  }
+  return 'system';
+};
 
 const getDefaultConfig = () => {
   const prefersDark =
@@ -62,6 +81,9 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [autoFit, setAutoFit] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [themeMode, setThemeMode] = useState(() => getInitialThemeMode());
+  const [isSystemDark, setIsSystemDark] = useState(() => getSystemDarkPreference());
+  const resolvedTheme = themeMode === 'system' ? (isSystemDark ? 'dark' : 'light') : themeMode;
 
   const [meta, setMeta] = useState(() => createEmptyMeta());
 
@@ -92,6 +114,37 @@ export default function App() {
       if (imageUrl) URL.revokeObjectURL(imageUrl);
     };
   }, [imageUrl]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (event) => {
+      setIsSystemDark(event.matches);
+    };
+
+    setIsSystemDark(mediaQuery.matches);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    const rootElement = document.documentElement;
+    rootElement.classList.toggle('dark', resolvedTheme === 'dark');
+    rootElement.style.colorScheme = resolvedTheme;
+  }, [resolvedTheme]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    } catch (error) {
+      console.warn('Save theme mode failed:', error);
+    }
+  }, [themeMode]);
 
   const handleUpload = async (event) => {
     const file = event.target.files && event.target.files[0];
@@ -273,6 +326,8 @@ export default function App() {
             onToggle={() => setSettingsOpen((prev) => !prev)}
             config={config}
             meta={meta}
+            themeMode={themeMode}
+            onThemeModeChange={setThemeMode}
             updateConfig={updateConfig}
             updateColors={updateColors}
             updateVisibility={updateVisibility}

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 
 export const useScript = (src) => {
-  const [status, setStatus] = useState(src ? 'loading' : 'idle');
+  const [status, setStatus] = useState('idle');
 
   useEffect(() => {
-    if (!src) {
-      setStatus('idle');
-      return;
-    }
+    if (!src) return;
+
+    const deferStatus = (nextStatus) => {
+      queueMicrotask(() => setStatus(nextStatus));
+    };
 
     let script = document.querySelector(`script[src="${src}"]`);
     if (!script) {
@@ -16,8 +17,9 @@ export const useScript = (src) => {
       script.async = true;
       script.dataset.status = 'loading';
       document.body.appendChild(script);
+      deferStatus('loading');
     } else {
-      setStatus(script.dataset.status || 'ready');
+      deferStatus(script.dataset.status || 'ready');
     }
 
     const handleLoad = () => {
@@ -38,5 +40,5 @@ export const useScript = (src) => {
     };
   }, [src]);
 
-  return status;
+  return src ? status : 'idle';
 };

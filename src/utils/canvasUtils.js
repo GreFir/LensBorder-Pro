@@ -120,7 +120,7 @@ const samplePalette = (image, count = 4) => {
     return ranked.map(
       (c) => `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`.toUpperCase()
     );
-  } catch (error) {
+  } catch {
     return [];
   }
 };
@@ -651,7 +651,7 @@ const drawMuseum = (ctx, layout, config, text) => {
 };
 
 const drawLagoon = (ctx, layout, config, text) => {
-  const { canvasWidth, canvasHeight, framePadding, textY, baseFont, useRightText } = layout;
+  const { canvasWidth, canvasHeight, framePadding, baseFont, useRightText } = layout;
   if (useRightText) {
     drawRightColumn(ctx, layout, config, text, { showDivider: true });
     return;

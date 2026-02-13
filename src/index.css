@@ -16,11 +16,9 @@ body {
   color: #0f172a;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #0b0c10;
-    color: #f8fafc;
-  }
+.dark body {
+  background: #0b0c10;
+  color: #f8fafc;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -39,6 +37,22 @@ body {
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.preview-stage {
+  background-color: #cbd5e1;
+  background-image:
+    linear-gradient(45deg, rgba(148, 163, 184, 0.26) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.26) 75%),
+    linear-gradient(45deg, rgba(148, 163, 184, 0.2) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.2) 75%);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+}
+
+.dark .preview-stage {
+  background-color: #1e293b;
+  background-image:
+    linear-gradient(45deg, rgba(100, 116, 139, 0.28) 25%, transparent 25%, transparent 75%, rgba(100, 116, 139, 0.28) 75%),
+    linear-gradient(45deg, rgba(100, 116, 139, 0.2) 25%, transparent 25%, transparent 75%, rgba(100, 116, 139, 0.2) 75%);
 }
 
 @keyframes float-in {

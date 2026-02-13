@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileImage } from 'lucide-react';
 
 const clampZoom = (value) => Math.min(3.5, Math.max(0.2, value));
@@ -11,38 +11,24 @@ export default function PreviewArea({
   autoFit,
   imageInfo,
 }) {
-  const containerRef = useRef(null);
   const viewportRef = useRef(null);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
+
   const handleZoom = (value) => {
     onZoomChange(clampZoom(value));
   };
 
   const handleWheel = (event) => {
     if (!hasImage) return;
-    event.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
     const delta = event.deltaY * -0.0015;
     handleZoom(zoom + delta);
   };
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const element = containerRef.current;
-
-    const updateSize = () => {
-      const rect = element.getBoundingClientRect();
-      setContainerSize({ width: rect.width, height: rect.height });
-    };
-
-    updateSize();
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(element);
-
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     if (!viewportRef.current) return;
@@ -61,42 +47,74 @@ export default function PreviewArea({
   }, []);
 
   useEffect(() => {
+    if (!hasImage || !canvasRef.current) {
+      queueMicrotask(() => setCanvasSize({ width: 0, height: 0 }));
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    const updateCanvasSize = () => {
+      setCanvasSize({ width: canvas.width || 0, height: canvas.height || 0 });
+    };
+
+    updateCanvasSize();
+
+    const resizeObserver = new ResizeObserver(updateCanvasSize);
+    resizeObserver.observe(canvas);
+
+    const mutationObserver = new MutationObserver(updateCanvasSize);
+    mutationObserver.observe(canvas, {
+      attributes: true,
+      attributeFilter: ['width', 'height'],
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [canvasRef, hasImage]);
+
+  useEffect(() => {
     if (autoFit) {
-      setPan({ x: 0, y: 0 });
+      queueMicrotask(() => setPan({ x: 0, y: 0 }));
     }
   }, [autoFit, hasImage]);
 
   useEffect(() => {
     if (!autoFit || !hasImage) return;
-    const canvas = canvasRef.current;
-    if (!canvas || !viewportSize.width || !viewportSize.height) return;
+    if (!canvasSize.width || !canvasSize.height || !viewportSize.width || !viewportSize.height) return;
 
     const padding = 56;
     const availableWidth = Math.max(1, viewportSize.width - padding);
     const availableHeight = Math.max(1, viewportSize.height - padding);
-    const scaleX = availableWidth / canvas.width;
-    const scaleY = availableHeight / canvas.height;
+    const scaleX = availableWidth / canvasSize.width;
+    const scaleY = availableHeight / canvasSize.height;
     const fitZoom = clampZoom(Math.min(scaleX, scaleY));
 
     onZoomChange(fitZoom, { auto: true });
-  }, [autoFit, hasImage, viewportSize, canvasRef, onZoomChange]);
-
-  const clampedPan = useMemo(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !viewportSize.width || !viewportSize.height) return pan;
-    const scaledWidth = canvas.width * zoom;
-    const scaledHeight = canvas.height * zoom;
-    const limitX = Math.max(0, (scaledWidth - viewportSize.width) / 2);
-    const limitY = Math.max(0, (scaledHeight - viewportSize.height) / 2);
-    return {
-      x: Math.max(-limitX, Math.min(limitX, pan.x)),
-      y: Math.max(-limitY, Math.min(limitY, pan.y)),
-    };
-  }, [pan, zoom, viewportSize, canvasRef]);
+  }, [autoFit, hasImage, viewportSize, canvasSize, onZoomChange]);
 
   useEffect(() => {
-    setPan(clampedPan);
-  }, [clampedPan.x, clampedPan.y]);
+    if (!canvasSize.width || !canvasSize.height || !viewportSize.width || !viewportSize.height) {
+      return;
+    }
+
+    const scaledWidth = canvasSize.width * zoom;
+    const scaledHeight = canvasSize.height * zoom;
+    const limitX = Math.max(0, (scaledWidth - viewportSize.width) / 2);
+    const limitY = Math.max(0, (scaledHeight - viewportSize.height) / 2);
+
+    queueMicrotask(() => {
+      setPan((prev) => {
+        const next = {
+          x: Math.max(-limitX, Math.min(limitX, prev.x)),
+          y: Math.max(-limitY, Math.min(limitY, prev.y)),
+        };
+        if (next.x === prev.x && next.y === prev.y) return prev;
+        return next;
+      });
+    });
+  }, [canvasSize, viewportSize, zoom]);
 
   const handlePointerDown = (event) => {
     if (!hasImage) return;
@@ -133,13 +151,13 @@ export default function PreviewArea({
         </div>
       )}
 
-      <div ref={containerRef} className="relative z-10 flex h-full w-full flex-col min-h-0">
+      <div className="relative z-10 flex h-full w-full flex-col min-h-0">
         {hasImage ? (
           <div className="flex-1 px-6 py-8 min-h-0">
             <div className="h-full w-full">
               <div
                 ref={viewportRef}
-                className="h-full w-full rounded-2xl border border-slate-200/70 bg-white/95 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/80"
+                className="h-full w-full rounded-2xl border border-slate-300/80 bg-slate-100/95 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur dark:border-slate-700/80 dark:bg-slate-950/85"
               >
                 <div
                   className="relative h-full w-full overflow-hidden"
@@ -150,10 +168,11 @@ export default function PreviewArea({
                   onWheel={handleWheel}
                   style={{ cursor: 'grab', touchAction: 'none' }}
                 >
+                  <div className="preview-stage pointer-events-none absolute inset-0 rounded-xl border border-slate-300/70 dark:border-slate-700/80"></div>
                   <div
                     className="absolute left-1/2 top-1/2 transform-gpu transition-transform duration-300"
                     style={{
-                      transform: `translate(-50%, -50%) translate(${clampedPan.x}px, ${clampedPan.y}px) scale(${zoom})`,
+                      transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                       transformOrigin: 'center',
                     }}
                   >
@@ -178,4 +197,3 @@ export default function PreviewArea({
     </div>
   );
 }
-

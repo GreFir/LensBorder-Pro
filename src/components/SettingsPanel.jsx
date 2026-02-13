@@ -62,6 +62,8 @@ export default function SettingsPanel({
   onToggle,
   config,
   meta,
+  themeMode,
+  onThemeModeChange,
   updateConfig,
   updateColors,
   updateVisibility,
@@ -107,6 +109,30 @@ export default function SettingsPanel({
         >
           重置所有参数
         </button>
+
+        <Section title="界面主题" subtitle="默认跟随系统，可手动覆盖">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'system', label: '跟随系统' },
+              { id: 'light', label: '浅色' },
+              { id: 'dark', label: '深色' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onThemeModeChange(item.id)}
+                className={`rounded-xl border px-2 py-2 text-[11px] font-semibold transition ${
+                  themeMode === item.id
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white/70 text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </Section>
+
         {isPostcardNote && (
           <Section title="明信片文案" subtitle="支持自定义内容">
             <textarea
@@ -282,7 +308,7 @@ export default function SettingsPanel({
             <input
               type="range"
               min="0"
-              max="60"
+              max="160"
               step="2"
               value={config.imageRadius}
               onChange={(event) => updateConfig('imageRadius', parseFloat(event.target.value))}
