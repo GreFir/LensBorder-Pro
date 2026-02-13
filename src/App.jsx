@@ -46,6 +46,16 @@ const getDefaultConfig = () => {
     colors: palette.colors,
     fieldVisibility: { ...DEFAULT_VISIBILITY },
     copyText: 'Greetings from LensBorder Pro',
+    authorAvatarSrc: '',
+    authorBio: 'Photographer',
+    creatorAvatarScale: 1,
+    creatorHeaderOffset: 0,
+    metaOffsetY: 0,
+    poemCardTitle: 'Mountain Flower',
+    poemCardLines: [
+      '风沿山脊缓缓写下黄昏，',
+      '云在花影里藏起远方的回声。',
+    ],
     imagePalette: null,
     glassOpacity: 0.35,
     glassBlur: 18,
@@ -66,6 +76,7 @@ const getDefaultConfig = () => {
     ],
     paletteOverrideEnabled: false,
     paletteOverrides: ['#1F2937', '#4B5563', '#9CA3AF', '#D1D5DB'],
+    postcardStampSrc: '',
     overlays: [],
   };
 };
@@ -98,7 +109,7 @@ export default function App() {
     const previewScale = maxDim > PREVIEW_MAX_DIMENSION ? PREVIEW_MAX_DIMENSION / maxDim : 1;
 
     const raf = requestAnimationFrame(() => {
-      renderFrame(ctx, image, config, meta, { scale: previewScale });
+      renderFrame(ctx, image, config, meta, { scale: previewScale, preview: true });
     });
 
     return () => cancelAnimationFrame(raf);
@@ -277,7 +288,7 @@ export default function App() {
     const exportCtx = exportCanvas.getContext('2d');
     if (!exportCtx) return;
 
-    renderFrame(exportCtx, image, config, meta, { scale: 1 });
+    renderFrame(exportCtx, image, config, meta, { scale: 1, preview: false });
 
     exportCanvas.toBlob(
       (blob) => {
@@ -309,6 +320,8 @@ export default function App() {
           onZoomChange={handleZoomChange}
           hasImage={!!image}
           onDownload={handleDownload}
+          themeMode={themeMode}
+          onThemeModeChange={setThemeMode}
         />
 
         <div className="flex-1 relative flex flex-col min-h-0">
@@ -326,8 +339,6 @@ export default function App() {
             onToggle={() => setSettingsOpen((prev) => !prev)}
             config={config}
             meta={meta}
-            themeMode={themeMode}
-            onThemeModeChange={setThemeMode}
             updateConfig={updateConfig}
             updateColors={updateColors}
             updateVisibility={updateVisibility}

@@ -14,6 +14,16 @@ const Section = ({ title, subtitle, children }) => (
 );
 
 const TemplatePreview = ({ id }) => {
+  if (id === 'creator-signature') {
+    return (
+      <div className="relative h-14 w-20 rounded-lg border border-slate-200 bg-white">
+        <div className="absolute inset-1 rounded-md bg-slate-900"></div>
+        <div className="absolute left-2 top-2 h-3 w-3 rounded-full border border-white/60 bg-slate-300"></div>
+        <div className="absolute left-6 top-2 h-1.5 w-6 rounded-full bg-white/80"></div>
+        <div className="absolute bottom-3 left-1/2 h-2 w-10 -translate-x-1/2 rounded-full bg-white/90"></div>
+      </div>
+    );
+  }
   if (id === 'postcard' || id === 'postcard-note') {
     return (
       <div className="relative h-14 w-20 rounded-lg border border-slate-200 bg-amber-50/70">
@@ -45,10 +55,10 @@ const TemplatePreview = ({ id }) => {
       </div>
     );
   }
-  if (id === 'glassframe') {
+  if (id === 'glassframe' || id === 'glass-brand') {
     return (
       <div className="relative h-14 w-20 rounded-lg border border-white/60 bg-gradient-to-br from-white/60 via-slate-100/40 to-slate-200/20">
-        <div className="absolute inset-2 rounded-sm border border-white/60"></div>
+        <div className={`absolute rounded-sm border border-white/60 ${id === 'glass-brand' ? 'inset-3' : 'inset-2'}`}></div>
       </div>
     );
   }
@@ -60,16 +70,16 @@ const TemplatePreview = ({ id }) => {
       </div>
     );
   }
-  if (id === 'palette-card') {
+  if (id === 'palette-card' || id === 'palette-poem') {
     return (
       <div className="relative h-14 w-20 rounded-lg border border-slate-200 bg-white">
-        <div className="absolute inset-2 rounded-sm bg-slate-200"></div>
+        <div className={`absolute rounded-sm bg-slate-200 ${id === 'palette-poem' ? 'inset-x-2 top-3 bottom-5' : 'inset-2'}`}></div>
+        {id === 'palette-poem' && <div className="absolute left-2 top-1.5 h-1 w-7 rounded-full bg-slate-700"></div>}
         <div className="absolute bottom-2 left-2 right-2 flex gap-1">
-          <span className="h-2 w-2 rounded-full bg-slate-700"></span>
-          <span className="h-2 w-2 rounded-full bg-amber-700"></span>
-          <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-          <span className="h-2 w-2 rounded-full bg-slate-400"></span>
-          <span className="h-2 w-2 rounded-full bg-slate-300"></span>
+          <span className={`bg-slate-300 ${id === 'palette-poem' ? 'h-2.5 w-3.5 rounded-sm' : 'h-2 w-2 rounded-full'}`}></span>
+          <span className={`bg-sky-300 ${id === 'palette-poem' ? 'h-2.5 w-3.5 rounded-sm' : 'h-2 w-2 rounded-full'}`}></span>
+          <span className={`bg-amber-300 ${id === 'palette-poem' ? 'h-2.5 w-3.5 rounded-sm' : 'h-2 w-2 rounded-full'}`}></span>
+          <span className={`bg-yellow-600 ${id === 'palette-poem' ? 'h-2.5 w-3.5 rounded-sm' : 'h-2 w-2 rounded-full'}`}></span>
         </div>
       </div>
     );
@@ -125,6 +135,8 @@ export default function TemplatePanel({
   onZoomChange,
   hasImage,
   onDownload,
+  themeMode,
+  onThemeModeChange,
 }) {
   const zoomPercent = Math.round(zoom * 100);
   const handleZoom = (value) => {
@@ -221,6 +233,29 @@ export default function TemplatePanel({
               <Download size={14} />
               导出高清图
             </button>
+          </div>
+        </Section>
+
+        <Section title="界面主题" subtitle="默认跟随系统，可手动覆盖">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'system', label: '跟随系统' },
+              { id: 'light', label: '浅色' },
+              { id: 'dark', label: '深色' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onThemeModeChange(item.id)}
+                className={`rounded-xl border px-2 py-2 text-[11px] font-semibold transition ${
+                  themeMode === item.id
+                    ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                    : 'border-slate-200 bg-white/70 text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
         </Section>
 

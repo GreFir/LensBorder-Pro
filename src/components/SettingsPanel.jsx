@@ -62,8 +62,6 @@ export default function SettingsPanel({
   onToggle,
   config,
   meta,
-  themeMode,
-  onThemeModeChange,
   updateConfig,
   updateColors,
   updateVisibility,
@@ -74,12 +72,16 @@ export default function SettingsPanel({
   onUpdateOverlays,
 }) {
   const isPostcardNote = config.template === 'postcard-note';
+  const showPostcardStampControls = ['postcard', 'postcard-note'].includes(config.template);
   const showFloatingControls = config.template === 'floating';
-  const showGlassControls = config.template === 'glassframe';
+  const showGlassControls = ['glassframe', 'glass-brand'].includes(config.template);
   const showNoirControls = config.template === 'noir';
   const showMuseumControls = config.template === 'museum';
   const showMonolithControls = config.template === 'monolith';
-  const showPaletteControls = config.template === 'palette-card';
+  const showPaletteControls = ['palette-card', 'palette-poem'].includes(config.template);
+  const showCreatorSignatureControls = config.template === 'creator-signature';
+  const showMetaOffsetControls = ['creator-signature', 'glass-brand'].includes(config.template);
+  const showPalettePoemControls = config.template === 'palette-poem';
 
   return (
     <aside
@@ -110,28 +112,154 @@ export default function SettingsPanel({
           重置所有参数
         </button>
 
-        <Section title="界面主题" subtitle="默认跟随系统，可手动覆盖">
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: 'system', label: '跟随系统' },
-              { id: 'light', label: '浅色' },
-              { id: 'dark', label: '深色' },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onThemeModeChange(item.id)}
-                className={`rounded-xl border px-2 py-2 text-[11px] font-semibold transition ${
-                  themeMode === item.id
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-slate-200 bg-white/70 text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </Section>
+
+        {showPostcardStampControls && (
+          <Section title="明信片邮票" subtitle="上传图片替换右上角圆形印章">
+            <div className="space-y-3">
+              <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                上传邮票图像
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files && event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const nextSrc = typeof reader.result === 'string' ? reader.result : '';
+                      updateConfig('postcardStampSrc', nextSrc);
+                      setTimeout(() => updateConfig('postcardStampSrc', nextSrc), 80);
+                    };
+                    reader.readAsDataURL(file);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+
+              {config.postcardStampSrc ? (
+                <>
+                  <div className="rounded-xl border border-slate-200/80 bg-white/70 p-2 dark:border-slate-800 dark:bg-slate-900/60">
+                    <img
+                      src={config.postcardStampSrc}
+                      alt="stamp preview"
+                      className="mx-auto h-16 w-16 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateConfig('postcardStampSrc', '')}
+                    className="w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300"
+                  >
+                    移除邮票图像
+                  </button>
+                </>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-400 dark:border-slate-700">
+                  未上传时将显示默认 STAMP 圆章
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {showCreatorSignatureControls && (
+          <Section title="作者信息" subtitle="上传头像并设置作者展示信息">
+            <div className="space-y-3">
+              <FieldInput
+                label="作者名称"
+                value={meta.artist || ''}
+                placeholder="输入作者名"
+                onChange={(value) => updateMeta('artist', value)}
+              />
+
+              <FieldInput
+                label="作者说明"
+                value={config.authorBio || ''}
+                placeholder="例如 Travel Photographer"
+                onChange={(value) => updateConfig('authorBio', value)}
+              />
+
+              <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                上传作者头像
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files && event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const nextSrc = typeof reader.result === 'string' ? reader.result : '';
+                      updateConfig('authorAvatarSrc', nextSrc);
+                      setTimeout(() => updateConfig('authorAvatarSrc', nextSrc), 80);
+                    };
+                    reader.readAsDataURL(file);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>头像大小</span>
+                    <span className="font-mono text-slate-400">{(config.creatorAvatarScale || 1).toFixed(2)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.6"
+                    max="2"
+                    step="0.05"
+                    value={config.creatorAvatarScale || 1}
+                    onChange={(event) => updateConfig('creatorAvatarScale', parseFloat(event.target.value))}
+                    className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>顶部信息位置</span>
+                    <span className="font-mono text-slate-400">{Math.round(config.creatorHeaderOffset || 0)}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-120"
+                    max="160"
+                    step="1"
+                    value={config.creatorHeaderOffset || 0}
+                    onChange={(event) => updateConfig('creatorHeaderOffset', parseFloat(event.target.value))}
+                    className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+                  />
+                </div>
+              </div>
+
+              {config.authorAvatarSrc ? (
+                <>
+                  <div className="rounded-xl border border-slate-200/80 bg-white/70 p-2 dark:border-slate-800 dark:bg-slate-900/60">
+                    <img
+                      src={config.authorAvatarSrc}
+                      alt="author avatar"
+                      className="mx-auto h-16 w-16 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateConfig('authorAvatarSrc', '')}
+                    className="w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300"
+                  >
+                    移除头像
+                  </button>
+                </>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-400 dark:border-slate-700">
+                  未上传时会显示默认圆形头像占位
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
 
         {isPostcardNote && (
           <Section title="明信片文案" subtitle="支持自定义内容">
@@ -377,6 +505,62 @@ export default function SettingsPanel({
           </Section>
         )}
 
+        {showPalettePoemControls && (
+          <Section title="诗意文案" subtitle="可添加多行文本，打造叙事感">
+            <div className="space-y-3">
+              <FieldInput
+                label="主标题"
+                value={config.poemCardTitle || ''}
+                placeholder="例如 Mountain Flower"
+                onChange={(value) => updateConfig('poemCardTitle', value)}
+              />
+
+              <div className="space-y-2">
+                {(config.poemCardLines || []).map((line, index) => (
+                  <div
+                    key={`poem-line-${index}`}
+                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-2 py-2 dark:border-slate-800 dark:bg-slate-900/60"
+                  >
+                    <input
+                      type="text"
+                      value={line}
+                      placeholder={`诗意文案 ${index + 1}`}
+                      onChange={(event) => {
+                        const next = [...(config.poemCardLines || [])];
+                        next[index] = event.target.value;
+                        updateConfig('poemCardLines', next);
+                      }}
+                      className="w-full bg-transparent text-xs text-slate-700 outline-none dark:text-slate-200"
+                    />
+                    {(config.poemCardLines || []).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = (config.poemCardLines || []).filter((_, i) => i !== index);
+                          updateConfig('poemCardLines', next.length ? next : ['']);
+                        }}
+                        className="text-[10px] text-rose-500 hover:text-rose-600"
+                      >
+                        删除
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {(config.poemCardLines || []).length < 8 && (
+                <button
+                  type="button"
+                  onClick={() => updateConfig('poemCardLines', [...(config.poemCardLines || []), ''])}
+                  className="w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 hover:border-slate-400 dark:border-slate-700 dark:text-slate-400"
+                >
+                  添加一行文案
+                </button>
+              )}
+            </div>
+          </Section>
+        )}
+
         {showPaletteControls && (
           <Section title="色卡取色" subtitle="允许手动指定色卡">
             <div className="space-y-3">
@@ -539,6 +723,24 @@ export default function SettingsPanel({
                 className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
               />
             </div>
+
+            {showMetaOffsetControls && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>元数据上下偏移</span>
+                  <span className="font-mono text-slate-400">{Math.round(config.metaOffsetY || 0)}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="-220"
+                  max="220"
+                  step="1"
+                  value={config.metaOffsetY || 0}
+                  onChange={(event) => updateConfig('metaOffsetY', parseFloat(event.target.value))}
+                  className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+                />
+              </div>
+            )}
           </div>
         </Section>
 

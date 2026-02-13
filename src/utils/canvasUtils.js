@@ -7,6 +7,7 @@ const TEMPLATE_STYLES = {
   classic: { frameScale: 1, bottomScale: 1 },
   postcard: { frameScale: 1.1, bottomScale: 0.9 },
   'postcard-note': { frameScale: 1.1, bottomScale: 0.9 },
+  'creator-signature': { frameScale: 0, bottomScale: 0 },
   minimal: { frameScale: 0, bottomScale: 0 },
   gallery: { frameScale: 2.1, bottomScale: 1.25 },
   cinema: { frameScale: 0.8, bottomScale: 0.7 },
@@ -18,8 +19,10 @@ const TEMPLATE_STYLES = {
   editorial: { frameScale: 1.6, bottomScale: 1.2 },
   museum: { frameScale: 2.6, bottomScale: 1.35 },
   glassframe: { frameScale: 0.4, bottomScale: 0.2 },
+  'glass-brand': { frameScale: 2.3, bottomScale: 0 },
   lagoon: { frameScale: 1.1, bottomScale: 1.1 },
   'palette-card': { frameScale: 1.4, bottomScale: 1.4 },
+  'palette-poem': { frameScale: 1.55, bottomScale: 1.95 },
   floating: { frameScale: 1.2, bottomScale: 0.9 },
   atelier: { frameScale: 1.5, bottomScale: 1.1 },
   monolith: { frameScale: 0.7, bottomScale: 0.6 },
@@ -249,13 +252,14 @@ const computeLayout = (image, config) => {
   const basePadding = (base * config.framePadding) / 100;
   const baseBottom = (base * config.bottomPadding) / 100;
   const style = TEMPLATE_STYLES[config.template] || TEMPLATE_STYLES.classic;
-  const noBottomBar = new Set(['minimal', 'mono', 'glassframe']);
+  const noBottomBar = new Set(['minimal', 'mono', 'glassframe', 'glass-brand', 'creator-signature']);
   const useRightText =
     config.textPosition === 'right' && RIGHT_TEXT_TEMPLATES.has(config.template);
   const sideBarWidth = useRightText ? Math.max(base * 0.22, 220) : 0;
 
+  const noFrameTemplates = new Set(['minimal', 'creator-signature']);
   const framePadding =
-    config.template === 'minimal' ? 0 : Math.max(6, basePadding * style.frameScale);
+    noFrameTemplates.has(config.template) ? 0 : Math.max(6, basePadding * style.frameScale);
   const bottomBarHeight =
     useRightText || config.template === 'minimal' || noBottomBar.has(config.template)
       ? 0
@@ -286,28 +290,33 @@ const computeLayout = (image, config) => {
   };
 };
 
-const drawBase = (ctx, layout, config, image) => {
+const drawBase = (ctx, layout, config, image, options = {}) => {
   const { canvasWidth, canvasHeight, imageX, imageY, imageWidth, imageHeight } = layout;
-  if (config.paperGradientEnabled && Array.isArray(config.paperGradientStops)) {
-    const stops =
-      config.paperGradientStops.length >= 2
-        ? [...config.paperGradientStops].sort((a, b) => a.pos - b.pos)
-        : [
-            { pos: 0, color: config.colors.paper },
-            { pos: 100, color: config.colors.paper },
-          ];
-    ctx.fillStyle = buildGradient(
-      ctx,
-      canvasWidth,
-      canvasHeight,
-      config.paperGradientDirection || 'diagonal',
-      stops
-    );
-  } else {
-    ctx.fillStyle = config.colors.paper;
-  }
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   const radius = Math.max(0, config.imageRadius || 0);
+  const transparentBackground =
+    options.preview && config.template === 'creator-signature' && radius > 0;
+
+  if (!transparentBackground) {
+    if (config.paperGradientEnabled && Array.isArray(config.paperGradientStops)) {
+      const stops =
+        config.paperGradientStops.length >= 2
+          ? [...config.paperGradientStops].sort((a, b) => a.pos - b.pos)
+          : [
+              { pos: 0, color: config.colors.paper },
+              { pos: 100, color: config.colors.paper },
+            ];
+      ctx.fillStyle = buildGradient(
+        ctx,
+        canvasWidth,
+        canvasHeight,
+        config.paperGradientDirection || 'diagonal',
+        stops
+      );
+    } else {
+      ctx.fillStyle = config.colors.paper;
+    }
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  }
   if (config.shadowEnabled) {
     ctx.save();
     ctx.shadowColor = `rgba(15, 23, 42, ${config.shadowOpacity ?? 0.35})`;
@@ -384,6 +393,20 @@ const drawPostcard = (ctx, layout, config, text) => {
   const stamp = baseFont * 2.8;
   const stampX = canvasWidth - framePadding - stamp;
   const stampY = framePadding * 0.4;
+  const stampImage = getOverlayImage(config.postcardStampSrc);
+
+  ctx.save();
+  ctx.translate(stampX, stampY);
+  ctx.beginPath();
+  ctx.arc(stamp / 2, stamp / 2, stamp / 2, 0, Math.PI * 2);
+  ctx.clip();
+  if (stampImage) {
+    drawImageCover(ctx, stampImage, 0, 0, stamp, stamp);
+  } else {
+    ctx.fillStyle = withAlpha(config.colors.paper, 0.4);
+    ctx.fillRect(0, 0, stamp, stamp);
+  }
+  ctx.restore();
 
   ctx.save();
   ctx.translate(stampX, stampY);
@@ -394,11 +417,14 @@ const drawPostcard = (ctx, layout, config, text) => {
   ctx.arc(stamp / 2, stamp / 2, stamp / 2, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = config.colors.ink;
-  ctx.font = `600 ${baseFont * 0.5}px ${FONT_FAMILIES.sans}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('STAMP', stamp / 2, stamp / 2);
+
+  if (!stampImage) {
+    ctx.fillStyle = config.colors.ink;
+    ctx.font = `600 ${baseFont * 0.5}px ${FONT_FAMILIES.sans}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('STAMP', stamp / 2, stamp / 2);
+  }
   ctx.restore();
 
   const note =
@@ -729,6 +755,105 @@ const drawPaletteCard = (ctx, layout, config, text, image) => {
   }
 };
 
+
+const drawPalettePoem = (ctx, layout, config, text, image, meta = {}) => {
+  const {
+    canvasWidth,
+    canvasHeight,
+    framePadding,
+    imageY,
+    imageHeight,
+    baseFont,
+  } = layout;
+
+  const visibility = config.fieldVisibility || {};
+  const pick = (key) => (visibility[key] ? (meta[key] || '').toString().trim() : '');
+
+  const make = pick('make');
+  const model = pick('model');
+  const lens = pick('lens');
+  const dateTime = pick('dateTime');
+
+  const brand = make || model || 'CAMERA';
+  const modelLabel = make && model ? model : model || '';
+  const detailLine = text.rightLine || '';
+  const title = (config.poemCardTitle || '').toString().trim() || 'Mountain Flower';
+  const poemLines = (config.poemCardLines || [])
+    .map((line) => (line || '').toString().trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  const swatches = config.paletteOverrideEnabled
+    ? config.paletteOverrides || []
+    : samplePalette(image, 4);
+
+  const bottomTop = imageY + imageHeight + Math.max(baseFont * 0.45, 10);
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  ctx.fillStyle = '#0F172A';
+  ctx.font = `700 ${baseFont * 1.7}px ${FONT_FAMILIES.sans}`;
+  ctx.fillText(fitText(ctx, brand.toUpperCase(), canvasWidth * 0.46), framePadding, framePadding * 0.45);
+
+  if (modelLabel) {
+    ctx.fillStyle = '#6B7280';
+    ctx.font = `600 ${baseFont * 0.55}px ${FONT_FAMILIES.sans}`;
+    ctx.fillText(
+      fitText(ctx, modelLabel.toUpperCase(), canvasWidth * 0.46),
+      framePadding,
+      framePadding * 0.45 + baseFont * 1.9
+    );
+  }
+
+  ctx.fillStyle = '#111827';
+  ctx.font = `700 ${baseFont * 1.02}px ${FONT_FAMILIES.sans}`;
+  ctx.fillText(fitText(ctx, title.toUpperCase(), canvasWidth * 0.58), framePadding, bottomTop + baseFont * 0.1);
+
+  const infoLines = [
+    dateTime ? `PHOTOGRAPHED IN : ${dateTime}` : '',
+    detailLine,
+    lens,
+  ].filter(Boolean);
+
+  ctx.fillStyle = '#6B7280';
+  ctx.font = `600 ${baseFont * 0.58}px ${FONT_FAMILIES.sans}`;
+  infoLines.forEach((line, idx) => {
+    ctx.fillText(
+      fitText(ctx, line.toUpperCase(), canvasWidth * 0.62),
+      framePadding,
+      bottomTop + baseFont * (1.85 + idx * 0.9)
+    );
+  });
+
+  const poemBaseY = bottomTop + baseFont * (1.85 + infoLines.length * 0.95 + 0.35);
+  ctx.fillStyle = '#4B5563';
+  ctx.font = `500 ${baseFont * 0.64}px ${FONT_FAMILIES.serif}`;
+  poemLines.forEach((line, idx) => {
+    ctx.fillText(
+      fitText(ctx, line, canvasWidth * 0.62),
+      framePadding,
+      poemBaseY + idx * baseFont * 0.9
+    );
+  });
+
+  const swatchHeight = Math.max(baseFont * 0.95, 16);
+  const swatchWidth = Math.max(baseFont * 2.35, 34);
+  const swatchGap = Math.max(baseFont * 0.18, 2);
+  const totalWidth = swatches.length * swatchWidth + Math.max(0, swatches.length - 1) * swatchGap;
+  const swatchStartX = canvasWidth - framePadding - totalWidth;
+  const swatchY = canvasHeight - framePadding - swatchHeight * 1.55;
+
+  swatches.forEach((color, index) => {
+    const x = swatchStartX + index * (swatchWidth + swatchGap);
+    ctx.fillStyle = color;
+    ctx.fillRect(x, swatchY, swatchWidth, swatchHeight);
+    ctx.strokeStyle = 'rgba(15,23,42,0.08)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, swatchY + 0.5, swatchWidth - 1, swatchHeight - 1);
+  });
+};
+
 const drawGlassframe = (ctx, layout, config, text, image) => {
   const { canvasWidth, canvasHeight, framePadding, baseFont } = layout;
   const opacity = config.glassOpacity ?? 0.35;
@@ -884,10 +1009,206 @@ const drawFolio = (ctx, layout, config, text) => {
   ctx.stroke();
 };
 
+const drawCreatorSignature = (ctx, layout, config, text, _image, meta = {}) => {
+  const { canvasWidth, canvasHeight, framePadding, baseFont, imageX, imageY, imageWidth, imageHeight } = layout;
+  const visibility = config.fieldVisibility || {};
+  const read = (key) => (visibility[key] ? (meta[key] || '').toString().trim() : '');
+
+  const make = read('make');
+  const model = read('model');
+  const artist = read('artist');
+  const brand = make || model;
+  const modelLine = make && model ? model : '';
+  const specLine = text.rightLine || '';
+  const infoLine = compact([modelLine, specLine]).join('   ');
+  const authorName = artist;
+  const authorBio = (config.authorBio || '').toString().trim() || 'Photographer';
+  const metaOffsetY = config.metaOffsetY ?? 0;
+
+  const radius = Math.max(0, config.imageRadius || 0);
+  if (radius > 0) {
+    ctx.save();
+    ctx.beginPath();
+    roundedRectPath(ctx, imageX, imageY, imageWidth, imageHeight, radius);
+    ctx.closePath();
+    ctx.clip();
+  }
+
+  const topShade = ctx.createLinearGradient(0, 0, 0, canvasHeight * 0.36);
+  topShade.addColorStop(0, 'rgba(15,23,42,0.45)');
+  topShade.addColorStop(1, 'rgba(15,23,42,0)');
+  ctx.fillStyle = topShade;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight * 0.36);
+
+  const bottomShade = ctx.createLinearGradient(0, canvasHeight, 0, canvasHeight * 0.56);
+  bottomShade.addColorStop(0, 'rgba(15,23,42,0.66)');
+  bottomShade.addColorStop(1, 'rgba(15,23,42,0)');
+  ctx.fillStyle = bottomShade;
+  ctx.fillRect(0, canvasHeight * 0.56, canvasWidth, canvasHeight * 0.44);
+
+  const avatarScale = Math.max(0.6, config.creatorAvatarScale ?? 1);
+  const avatarSize = Math.max(baseFont * 1.8 * avatarScale, 24);
+  const gap = Math.max(baseFont * 0.45, 10);
+
+  ctx.textBaseline = 'middle';
+  ctx.font = `600 ${baseFont * 0.85}px ${FONT_FAMILIES.sans}`;
+  const nameWidth = authorName ? ctx.measureText(authorName).width : 0;
+  ctx.font = `500 ${baseFont * 0.62}px ${FONT_FAMILIES.sans}`;
+  const bioWidth = authorBio ? ctx.measureText(authorBio).width : 0;
+  const infoWidth = Math.max(nameWidth, bioWidth, baseFont * 2.2);
+  const showAuthorRow = visibility.artist && Boolean(config.authorAvatarSrc || authorName || authorBio);
+
+  if (showAuthorRow) {
+    const rowWidth = avatarSize + gap + infoWidth;
+    const rowX = (canvasWidth - rowWidth) / 2;
+    const rowBaseY = Math.max(framePadding * 0.65, baseFont * 0.4);
+    const rowY = rowBaseY + (config.creatorHeaderOffset ?? 0);
+    const avatarImage = getOverlayImage(config.authorAvatarSrc);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(rowX + avatarSize / 2, rowY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+    if (avatarImage) {
+      drawImageCover(ctx, avatarImage, rowX, rowY, avatarSize, avatarSize);
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.fillRect(rowX, rowY, avatarSize, avatarSize);
+      const initial = (authorName || 'A').slice(0, 1).toUpperCase();
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 ${baseFont * 0.82}px ${FONT_FAMILIES.sans}`;
+      ctx.fillText(initial, rowX + avatarSize / 2, rowY + avatarSize / 2);
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = Math.max(1, baseFont * 0.05);
+    ctx.beginPath();
+    ctx.arc(rowX + avatarSize / 2, rowY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const infoX = rowX + avatarSize + gap;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(2, 6, 23, 0.5)';
+    ctx.shadowBlur = Math.max(4, baseFont * 0.2);
+
+    if (authorName) {
+      ctx.font = `600 ${baseFont * 0.85}px ${FONT_FAMILIES.sans}`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(authorName, infoX, rowY + avatarSize * 0.38);
+    }
+
+    if (authorBio) {
+      ctx.font = `500 ${baseFont * 0.62}px ${FONT_FAMILIES.sans}`;
+      ctx.fillStyle = 'rgba(255,255,255,0.82)';
+      ctx.fillText(authorBio, infoX, rowY + avatarSize * 0.74);
+    }
+
+    ctx.shadowBlur = 0;
+  }
+
+  const brandY = canvasHeight - Math.max(baseFont * 1.95, 24) + metaOffsetY;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+
+  if (brand) {
+    ctx.font = `700 ${baseFont * 2.1}px ${FONT_FAMILIES.serif}`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(fitText(ctx, brand, canvasWidth * 0.72), canvasWidth / 2, brandY);
+  }
+
+  if (infoLine) {
+    ctx.font = `500 ${baseFont * 0.84}px ${FONT_FAMILIES.sans}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(fitText(ctx, infoLine, canvasWidth * 0.8), canvasWidth / 2, brandY + baseFont * 1.25);
+  }
+
+  if (radius > 0) {
+    ctx.restore();
+  }
+};
+
+const drawGlassBrand = (ctx, layout, config, text, image, meta = {}) => {
+  const {
+    canvasWidth,
+    canvasHeight,
+    imageX,
+    imageY,
+    imageWidth,
+    imageHeight,
+    baseFont,
+  } = layout;
+
+  const opacity = Math.min(0.95, (config.glassOpacity ?? 0.35) + 0.18);
+  const blur = Math.max(8, (config.glassBlur ?? 18) * 1.35);
+  const radius = Math.max(0, config.imageRadius || 0);
+  const metaOffsetY = config.metaOffsetY ?? 0;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, canvasWidth, canvasHeight);
+  roundedRectPath(ctx, imageX, imageY, imageWidth, imageHeight, radius);
+  ctx.clip('evenodd');
+  ctx.filter = `blur(${blur}px)`;
+  ctx.globalAlpha = opacity;
+  drawImageCover(ctx, image, 0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, canvasWidth, canvasHeight);
+  roundedRectPath(ctx, imageX, imageY, imageWidth, imageHeight, radius);
+  ctx.clip('evenodd');
+  const glassGradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+  glassGradient.addColorStop(0, 'rgba(255,255,255,0.55)');
+  glassGradient.addColorStop(0.45, 'rgba(255,255,255,0.16)');
+  glassGradient.addColorStop(1, 'rgba(255,255,255,0.45)');
+  ctx.fillStyle = glassGradient;
+  ctx.globalAlpha = opacity;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
+
+  const visibility = config.fieldVisibility || {};
+  const make = visibility.make ? (meta.make || '').toString().trim() : '';
+  const model = visibility.model ? (meta.model || '').toString().trim() : '';
+  const brand = make || model;
+  const modelLine = make && model ? model : '';
+  const detailLine = compact([modelLine, text.rightLine]).join('   ');
+
+  const borderBandHeight = canvasHeight - (imageY + imageHeight);
+  const brandY = imageY + imageHeight + borderBandHeight * 0.55 + metaOffsetY;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.5)';
+  ctx.shadowBlur = Math.max(5, baseFont * 0.25);
+
+  if (brand) {
+    ctx.font = `700 ${baseFont * 2.2}px ${FONT_FAMILIES.serif}`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(fitText(ctx, brand, imageWidth * 0.72), imageX + imageWidth / 2, brandY);
+  }
+
+  if (detailLine) {
+    ctx.font = `500 ${baseFont * 0.82}px ${FONT_FAMILIES.sans}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(
+      fitText(ctx, detailLine, imageWidth * 0.84),
+      imageX + imageWidth / 2,
+      brandY + baseFont * 1.2
+    );
+  }
+
+  ctx.shadowBlur = 0;
+};
+
 const TEMPLATE_RENDERERS = {
   classic: drawClassic,
   postcard: drawPostcard,
   'postcard-note': drawPostcard,
+  'creator-signature': drawCreatorSignature,
   minimal: drawMinimal,
   gallery: drawGallery,
   cinema: drawCinema,
@@ -899,8 +1220,10 @@ const TEMPLATE_RENDERERS = {
   editorial: drawEditorial,
   museum: drawMuseum,
   glassframe: drawGlassframe,
+  'glass-brand': drawGlassBrand,
   lagoon: drawLagoon,
   'palette-card': drawPaletteCard,
+  'palette-poem': drawPalettePoem,
   floating: drawFloating,
   atelier: drawAtelier,
   monolith: drawMonolith,
@@ -939,17 +1262,14 @@ export const renderFrame = (ctx, image, config, meta, options = {}) => {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  drawBase(ctx, layout, drawConfig, drawImageSource);
+  drawBase(ctx, layout, drawConfig, drawImageSource, options);
 
   const text = buildText(meta, drawConfig.fieldVisibility || {});
   const drawTemplate = TEMPLATE_RENDERERS[drawConfig.template] || drawClassic;
-  if (drawTemplate === drawFloating || drawTemplate === drawGlassframe || drawTemplate === drawPaletteCard) {
-    drawTemplate(ctx, layout, drawConfig, text, drawImageSource);
-  } else {
-    drawTemplate(ctx, layout, drawConfig, text);
-  }
+  drawTemplate(ctx, layout, drawConfig, text, drawImageSource, meta);
 
   drawOverlays(ctx, layout, drawConfig);
 
   ctx.restore();
 };
+
