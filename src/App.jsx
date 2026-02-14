@@ -10,6 +10,7 @@ import { extractImagePalette } from './utils/colorUtils';
 
 const PREVIEW_MAX_DIMENSION = 2000;
 const THEME_STORAGE_KEY = 'lensborder-theme-mode';
+const DEFAULT_EXPORT_QUALITY = 0.95;
 
 const getSystemDarkPreference = () =>
   typeof window !== 'undefined' &&
@@ -27,6 +28,54 @@ const getInitialThemeMode = () => {
     console.warn('Read theme mode failed:', error);
   }
   return 'system';
+};
+
+const getExportFileName = () => `lensborder_${Date.now()}.jpg`;
+
+const createJpegBlob = (canvas, quality) =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Export blob is empty'));
+          return;
+        }
+        resolve(blob);
+      },
+      'image/jpeg',
+      quality
+    );
+  });
+
+const saveBlobWithAnchor = (blob, fileName) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = fileName;
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+const saveBlobWithFilePicker = async (blob, fileName) => {
+  if (typeof window === 'undefined' || typeof window.showSaveFilePicker !== 'function') {
+    return false;
+  }
+
+  const handle = await window.showSaveFilePicker({
+    suggestedName: fileName,
+    types: [
+      {
+        description: 'JPEG image',
+        accept: { 'image/jpeg': ['.jpg', '.jpeg'] },
+      },
+    ],
+  });
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+  return true;
 };
 
 const getDefaultConfig = () => {
@@ -94,6 +143,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [themeMode, setThemeMode] = useState(() => getInitialThemeMode());
   const [isSystemDark, setIsSystemDark] = useState(() => getSystemDarkPreference());
+  const [exportQuality, setExportQuality] = useState(DEFAULT_EXPORT_QUALITY);
   const resolvedTheme = themeMode === 'system' ? (isSystemDark ? 'dark' : 'light') : themeMode;
 
   const [meta, setMeta] = useState(() => createEmptyMeta());
@@ -281,7 +331,7 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!image) return;
 
     const exportCanvas = document.createElement('canvas');
@@ -290,21 +340,25 @@ export default function App() {
 
     renderFrame(exportCtx, image, config, meta, { scale: 1, preview: false });
 
-    exportCanvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `lensborder_${Date.now()}.jpg`;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      },
-      'image/jpeg',
-      0.95
-    );
+    try {
+      const fileName = getExportFileName();
+      const blob = await createJpegBlob(exportCanvas, exportQuality);
+      const savedByPicker = await saveBlobWithFilePicker(blob, fileName);
+      if (!savedByPicker) {
+        saveBlobWithAnchor(blob, fileName);
+      }
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        return;
+      }
+      console.error('Export failed:', error);
+      try {
+        const blob = await createJpegBlob(exportCanvas, exportQuality);
+        saveBlobWithAnchor(blob, getExportFileName());
+      } catch (fallbackError) {
+        console.error('Export fallback failed:', fallbackError);
+      }
+    }
   };
 
   return (
@@ -320,6 +374,8 @@ export default function App() {
           onZoomChange={handleZoomChange}
           hasImage={!!image}
           onDownload={handleDownload}
+          exportQuality={exportQuality}
+          onExportQualityChange={setExportQuality}
           themeMode={themeMode}
           onThemeModeChange={setThemeMode}
         />

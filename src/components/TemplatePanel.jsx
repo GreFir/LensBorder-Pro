@@ -135,10 +135,13 @@ export default function TemplatePanel({
   onZoomChange,
   hasImage,
   onDownload,
+  exportQuality,
+  onExportQualityChange,
   themeMode,
   onThemeModeChange,
 }) {
   const zoomPercent = Math.round(zoom * 100);
+  const qualityPercent = Math.round(exportQuality * 100);
   const handleZoom = (value) => {
     onZoomChange(clampZoom(value));
   };
@@ -222,6 +225,22 @@ export default function TemplatePanel({
               >
                 <ZoomIn size={14} />
               </button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>导出质量</span>
+                <span className="font-mono text-slate-400">{qualityPercent}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="1"
+                step="0.01"
+                value={exportQuality}
+                onChange={(event) => onExportQualityChange(parseFloat(event.target.value))}
+                className="h-1 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+              />
             </div>
 
             <button
