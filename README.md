@@ -1,6 +1,6 @@
 # LensBorder Pro
 
-一个本地运行的摄影水印边框 Web App，支持上传照片、读取 EXIF 元数据、选择多种模板并导出高清水印边框图。所有处理均在浏览器本地完成，不会上传照片。
+一个本地运行的摄影水印边框 Web App，支持上传照片、读取 EXIF 元数据、选择多种模板并导出高清水印边框图。所有处理均在浏览器本地完成，不会上传照片。可以点击链接下载[ LensBorder-Pro (Windows .msi)](./software/Lensbroader-Pro_0.1.0_x64_en-US.msi)
 
 ![alt text](image.png)
 
