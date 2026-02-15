@@ -2,11 +2,20 @@
 
 一个本地运行的摄影水印边框 Web App，支持上传照片、读取 EXIF 元数据、选择多种模板并导出高清水印边框图。所有处理均在浏览器本地完成，不会上传照片。可以直接点击下方链接下载对应平台的安装包：
 
-- 🪟 [下载 Windows 安装包 (.msi)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_x64_en-US.msi)
-- 🍎 [下载 macOS 安装包 (.dmg)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_x64.dmg)
-- 🐧 [下载 Linux 安装包 (.AppImage)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_amd64.AppImage)
+## 📥 下载安装 (Latest Version: v0.1.0)
 
-> 💡 **提示**：如果以上链接点击没反应，请前往 [Releases 页面](https://github.com/GreFir/LensBorder-Pro/releases) 手动选择下载。
+所有安装包均已通过 GitHub Actions 自动构建，点击下方链接即可下载对应系统的原生程序：
+
+| 平台 | 安装包下载 | 体积 |
+| :--- | :--- | :--- |
+| **Windows** | [🚀 点击下载 .exe 安装程序 (推荐)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_x64-setup.exe) | 1.81 MB |
+| **Windows** | [📦 点击下载 .msi 安装包](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_x64_en-US.msi) | 2.71 MB |
+| **macOS** | [🍎 点击下载 .dmg (Apple Silicon)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_aarch64.dmg) | 2.71 MB |
+| **Linux** | [🐧 点击下载 .AppImage (通用)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_amd64.AppImage) | 76.8 MB |
+| **Linux** | [📦 点击下载 .deb (Ubuntu/Debian)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_amd64.deb) | 2.82 MB |
+| **Linux** | [📦 点击下载 .rpm (Fedora/RedHat)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro-0.1.0-1.x86_64.rpm) | 2.82 MB |
+
+> 点击上面的链接没有反应直接转到 [Releases 页面](https://github.com/GreFir/LensBorder-Pro/releases) 查看。
 
 ![alt text](image.png)
 
