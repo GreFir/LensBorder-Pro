@@ -5,7 +5,7 @@
   "identifier": "com.Redwood.lensborder",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:3000",
+    "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
@@ -15,6 +15,7 @@
     "title": "LensBorder Pro", 
     "width": 1000,
     "height": 800,
+    "dragDropEnabled": false,
     "resizable": true,
     "fullscreen": false,
     "decorations": true,

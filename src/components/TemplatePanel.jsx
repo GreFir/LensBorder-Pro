@@ -165,14 +165,15 @@ export default function TemplatePanel({
           <div className="relative">
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
+              multiple
               onChange={onUpload}
               className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
             />
             <div className="rounded-2xl border border-dashed border-slate-300/80 bg-white/70 p-6 text-center transition hover:-translate-y-0.5 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900/60">
               <Upload className="mx-auto mb-3 h-6 w-6 text-slate-500" />
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">点击上传照片</p>
-              <p className="mt-1 text-xs text-slate-400">支持 JPG / PNG / WebP</p>
+              <p className="mt-1 text-xs text-slate-400">支持 JPG / PNG / WebP，按住 Ctrl/Shift 可多选</p>
             </div>
           </div>
 

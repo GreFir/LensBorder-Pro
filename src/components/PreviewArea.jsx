@@ -10,6 +10,7 @@ export default function PreviewArea({
   onZoomChange,
   autoFit,
   imageInfo,
+  supportsHdr,
 }) {
   const viewportRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -146,8 +147,15 @@ export default function PreviewArea({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.12),_transparent_60%)]"></div>
 
       {hasImage && imageInfo && (
-        <div className="absolute top-4 left-4 z-20 rounded-full border border-slate-200/60 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70 dark:text-slate-300">
-          {imageInfo.width} × {imageInfo.height}px
+        <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-full border border-slate-200/60 bg-white/85 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70 dark:text-slate-300">
+          <span>
+            {imageInfo.width} × {imageInfo.height}px
+          </span>
+          {supportsHdr && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/60 dark:text-amber-200">
+              HDR
+            </span>
+          )}
         </div>
       )}
 

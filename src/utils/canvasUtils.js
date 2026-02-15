@@ -21,7 +21,7 @@ const TEMPLATE_STYLES = {
   glassframe: { frameScale: 0.4, bottomScale: 0.2 },
   'glass-brand': { frameScale: 2.3, bottomScale: 0 },
   lagoon: { frameScale: 1.1, bottomScale: 1.1 },
-  'palette-card': { frameScale: 1.4, bottomScale: 1.4 },
+  'palette-card': { frameScale: 1.1, bottomScale: 1.05 },
   'palette-poem': { frameScale: 1.55, bottomScale: 1.95 },
   floating: { frameScale: 1.2, bottomScale: 0.9 },
   atelier: { frameScale: 1.5, bottomScale: 1.1 },
@@ -83,46 +83,70 @@ const buildGradient = (ctx, width, height, direction, stops) => {
   return gradient;
 };
 
+const kMeansPalette = (samples, k = 4, maxIter = 8) => {
+  if (!samples.length) return [];
+  const centers = samples.slice(0, k).map((p) => [...p]);
+  const assign = new Array(samples.length).fill(0);
+  for (let iter = 0; iter < maxIter; iter += 1) {
+    for (let i = 0; i < samples.length; i += 1) {
+      let best = 0;
+      let bestDist = Infinity;
+      for (let c = 0; c < centers.length; c += 1) {
+        const dr = samples[i][0] - centers[c][0];
+        const dg = samples[i][1] - centers[c][1];
+        const db = samples[i][2] - centers[c][2];
+        const dist = dr * dr + dg * dg + db * db;
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = c;
+        }
+      }
+      assign[i] = best;
+    }
+    const sums = Array.from({ length: k }, () => [0, 0, 0, 0]);
+    for (let i = 0; i < samples.length; i += 1) {
+      const s = sums[assign[i]];
+      s[0] += samples[i][0];
+      s[1] += samples[i][1];
+      s[2] += samples[i][2];
+      s[3] += 1;
+    }
+    for (let c = 0; c < k; c += 1) {
+      if (sums[c][3] === 0) continue;
+      centers[c][0] = Math.round(sums[c][0] / sums[c][3]);
+      centers[c][1] = Math.round(sums[c][1] / sums[c][3]);
+      centers[c][2] = Math.round(sums[c][2] / sums[c][3]);
+    }
+  }
+  const counts = new Array(k).fill(0);
+  for (const a of assign) counts[a] += 1;
+  return centers
+    .map((c, idx) => ({ color: c, count: counts[idx] }))
+    .filter((c) => c.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .map((c) => `#${toHex(c.color[0])}${toHex(c.color[1])}${toHex(c.color[2])}`.toUpperCase());
+};
+
 const samplePalette = (image, count = 4) => {
   try {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return [];
-    const size = 72;
+    const size = 96;
     canvas.width = size;
     canvas.height = size;
     ctx.drawImage(image, 0, 0, size, size);
 
     const { data } = ctx.getImageData(0, 0, size, size);
-    const buckets = new Map();
-    for (let i = 0; i < data.length; i += 4) {
+    const samples = [];
+    const step = 4 * 6;
+    for (let i = 0; i < data.length; i += step) {
       const alpha = data[i + 3];
       if (alpha < 40) continue;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const key = `${r >> 4}-${g >> 4}-${b >> 4}`;
-      const entry = buckets.get(key) || { r: 0, g: 0, b: 0, count: 0 };
-      entry.r += r;
-      entry.g += g;
-      entry.b += b;
-      entry.count += 1;
-      buckets.set(key, entry);
+      samples.push([data[i], data[i + 1], data[i + 2]]);
     }
-
-    const ranked = Array.from(buckets.values())
-      .map((entry) => ({
-        r: Math.round(entry.r / entry.count),
-        g: Math.round(entry.g / entry.count),
-        b: Math.round(entry.b / entry.count),
-        count: entry.count,
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, count);
-
-    return ranked.map(
-      (c) => `#${toHex(c.r)}${toHex(c.g)}${toHex(c.b)}`.toUpperCase()
-    );
+    if (samples.length === 0) return [];
+    return kMeansPalette(samples, count, 8).slice(0, count);
   } catch {
     return [];
   }
@@ -718,22 +742,46 @@ const drawLagoon = (ctx, layout, config, text) => {
 };
 
 const drawPaletteCard = (ctx, layout, config, text, image) => {
-  const { canvasWidth, canvasHeight, framePadding, baseFont } = layout;
-  const barHeight = Math.max(baseFont * 5.2, layout.bottomBarHeight || baseFont * 5.6);
-  const barY = canvasHeight - barHeight;
+  const { canvasWidth, canvasHeight, framePadding, baseFont, imageX, imageY, imageWidth, imageHeight } = layout;
+
+  // rely on base image draw; only add palette bar and text
+  const barHeight = Math.max(baseFont * 4.2, 82);
+  const barY = imageY + imageHeight + baseFont * 1.6;
+  const barX = imageX - framePadding * 0.4;
+  const barWidth = imageWidth + framePadding * 0.8;
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, barY, canvasWidth, barHeight);
+  ctx.fillRect(barX, barY, barWidth, barHeight);
+  ctx.strokeStyle = 'rgba(15,23,42,0.08)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-  const swatches = config.paletteOverrideEnabled
-    ? config.paletteOverrides || []
-    : samplePalette(image, 4);
-  const swatchSize = Math.max(42, baseFont * 1.75);
-  const swatchGap = Math.max(30, baseFont * 1.4);
+  const swatches = config.paletteOverrideEnabled ? config.paletteOverrides || [] : samplePalette(image, 4);
+  const swatchSize = Math.max(26, baseFont * 1.1);
+  const swatchGap = Math.max(100, baseFont * 1.2);
   const totalWidth = swatches.length * swatchSize + (swatches.length - 1) * swatchGap;
-  const startX = (canvasWidth - totalWidth) / 2;
-  const centerY = barY + barHeight * 0.45;
-  const labelY = centerY + swatchSize * 0.85;
+  const startX = imageX + imageWidth / 2 - totalWidth / 2;
+  const centerY = barY + barHeight * 0.68;
+  const labelY = centerY + swatchSize * 0.95;
+
+  // title block above swatches
+  const titleY = barY + baseFont * 0.9;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#0F172A';
+  ctx.font = `700 ${baseFont * 0.9}px ${FONT_FAMILIES.sans}`;
+  const title = text.leftMain || 'Palette Card';
+  ctx.fillText(fitText(ctx, title, barWidth * 0.9), barX + barWidth / 2, titleY);
+
+  if (text.leftSub) {
+    ctx.fillStyle = '#94A3B8';
+    ctx.font = `500 ${baseFont * 0.68}px ${FONT_FAMILIES.sans}`;
+    ctx.fillText(
+      fitText(ctx, text.leftSub, barWidth * 0.9),
+      barX + barWidth / 2,
+      titleY + baseFont * 0.9
+    );
+  }
 
   swatches.forEach((color, index) => {
     const x = startX + index * (swatchSize + swatchGap);
@@ -746,19 +794,12 @@ const drawPaletteCard = (ctx, layout, config, text, image) => {
     ctx.stroke();
 
     ctx.fillStyle = '#4B5563';
-    ctx.font = `500 ${baseFont * 0.6}px ${FONT_FAMILIES.sans}`;
+    ctx.font = `600 ${baseFont * 0.52}px ${FONT_FAMILIES.sans}`;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(fitText(ctx, color, swatchSize + swatchGap - 4), x + swatchSize / 2, labelY);
-  });
-
-  if (text.leftMain) {
-    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#111827';
-    ctx.font = `600 ${baseFont * 0.85}px ${FONT_FAMILIES.sans}`;
-    ctx.fillText(text.leftMain, framePadding, barY + barHeight * 0.2);
-  }
+    const maxWidth = swatchSize + swatchGap + 12;
+    ctx.fillText(fitText(ctx, color, maxWidth), x + swatchSize / 2, labelY);
+  });
 };
 
 

@@ -83,23 +83,42 @@ export default function SettingsPanel({
   const showMetaOffsetControls = ['creator-signature', 'glass-brand'].includes(config.template);
   const showPalettePoemControls = config.template === 'palette-poem';
 
+  const baseClass =
+    'absolute z-30 flex flex-col border border-slate-200/70 bg-white/85 shadow-2xl shadow-slate-900/20 backdrop-blur transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-950/80';
+  const openClass = 'right-4 top-4 bottom-4 w-[340px] rounded-3xl';
+  const closedClass =
+    'right-4 top-6 h-12 w-12 items-center justify-center rounded-full shadow-xl shadow-slate-900/30';
+
   return (
     <aside
-      className={`absolute right-4 top-4 bottom-4 z-30 flex flex-col rounded-3xl border border-slate-200/70 bg-white/85 shadow-2xl shadow-slate-900/20 backdrop-blur transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-950/80 ${
-        isOpen ? 'w-[340px]' : 'w-12'
-      }`}
+      aria-expanded={isOpen}
+      className={`${baseClass} ${isOpen ? openClass : closedClass}`}
     >
-      <div className={`flex items-center border-b border-slate-200/70 px-4 py-3 dark:border-slate-800/80 ${isOpen ? 'justify-between' : 'justify-center'}`}>
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-          <SlidersHorizontal size={16} />
-          <span className={isOpen ? 'block' : 'hidden'}>参数设置</span>
-        </div>
+      <div
+        className={`${
+          isOpen
+            ? 'flex items-center justify-between border-b border-slate-200/70 px-4 py-3 dark:border-slate-800/80'
+            : 'flex h-full items-center justify-center'
+        }`}
+      >
+        {isOpen ? (
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <SlidersHorizontal size={16} />
+            <span>参数设置</span>
+          </div>
+        ) : (
+          <SlidersHorizontal size={16} className="text-slate-600 dark:text-slate-200" />
+        )}
+
         <button
           type="button"
           onClick={onToggle}
-          className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900"
+          className={`rounded-full p-1 text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900 ${
+            isOpen ? '' : 'absolute inset-0'
+          }`}
+          aria-label={isOpen ? '收起参数面板' : '展开参数面板'}
         >
-          {isOpen ? <X size={16} /> : <SlidersHorizontal size={16} />}
+          {isOpen ? <X size={16} /> : null}
         </button>
       </div>
 
