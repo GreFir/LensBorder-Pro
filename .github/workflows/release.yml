@@ -4,10 +4,10 @@ on:
     branches:
       - main
     paths-ignore:
-      - '**.md'          # 忽略所有 Markdown 文件
-      - 'docs/**'        # 忽略 docs 文件夹
-      - '.gitignore'     # 忽略 git 配置文件
-      - 'LICENSE'        # 忽略授权文件
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
 
 jobs:
   release:
@@ -31,12 +31,13 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          # ✨ 为 macOS 安装两个架构的编译目标
+          targets: ${{ matrix.platform == 'macos-latest' && 'x86_64-apple-darwin,aarch64-apple-darwin' || '' }}
 
-      # ✨ 这里是添加 Rust 缓存的地方
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          # 指向 tauri 项目所在的目录
           workspaces: "./src-tauri -> target"
 
       - name: Install dependencies (ubuntu only)
@@ -65,3 +66,5 @@ jobs:
           releaseBody: "See the assets below to download the latest version."
           releaseDraft: true
           prerelease: false
+          # ✨ 只有在 macOS 上才执行通用二进制打包
+          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
