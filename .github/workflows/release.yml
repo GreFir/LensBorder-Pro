@@ -1,9 +1,13 @@
 name: Release
 on:
   push:
-    # 当推送到 main 分支时触发
     branches:
       - main
+    paths-ignore:
+      - '**.md'          # 忽略所有 Markdown 文件
+      - 'docs/**'        # 忽略 docs 文件夹
+      - '.gitignore'     # 忽略 git 配置文件
+      - 'LICENSE'        # 忽略授权文件
 
 jobs:
   release:
@@ -23,9 +27,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+
+      # ✨ 这里是添加 Rust 缓存的地方
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          # 指向 tauri 项目所在的目录
+          workspaces: "./src-tauri -> target"
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -39,7 +51,7 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev \
             patchelf
-            
+
       - name: Install frontend dependencies
         run: npm install
 
@@ -48,7 +60,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__ # 自动从 tauri.conf.json 读取版本号
+          tagName: v__VERSION__
           releaseName: "LensBorder Pro v__VERSION__"
           releaseBody: "See the assets below to download the latest version."
           releaseDraft: true
