@@ -8,14 +8,14 @@
 
 所有安装包均已通过 GitHub Actions 自动构建，所有平台版本均已发布：
 
-| 平台 | 安装包下载 | 体积 |
-| :--- | :--- | :--- |
-| **Windows** | [🚀 点击下载 .exe 安装程序 (推荐)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_x64-setup.exe) | 1.8 MB |
-| **Windows** | [📦 点击下载 .msi 安装包](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_x64_en-US.msi) | 2.71 MB |
-| **macOS** | [🍎 点击下载 .dmg (通用版：支持 Intel & M1/M2/M3)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_universal.dmg) | 5.49 MB |
-| **Linux** | [🐧 点击下载 .AppImage (通用)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_amd64.AppImage) | 76.8 MB |
-| **Linux** | [📦 点击下载 .deb (Ubuntu/Debian)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.0_amd64.deb) | 2.82 MB |
-| **Linux** | [📦 点击下载 .rpm (Fedora/RedHat)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro-0.1.0-1.x86_64.rpm) | 2.82 MB |
+| 平台 | 安装包下载 
+| :--- | :--- 
+| **Windows** | [🚀 点击下载 .exe 安装程序 (推荐)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.1_x64-setup.exe) 
+| **Windows** | [📦 点击下载 .msi 安装包](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.1_x64_en-US.msi) 
+| **macOS** | [🍎 点击下载 .dmg (通用版：支持 Intel & M1/M2/M3)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.1_universal.dmg) 
+| **Linux** | [🐧 点击下载 .AppImage (通用)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.1_amd64.AppImage) 
+| **Linux** | [📦 点击下载 .deb (Ubuntu/Debian)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro_0.1.01_amd64.deb) 
+| **Linux** | [📦 点击下载 .rpm (Fedora/RedHat)](https://github.com/GreFir/LensBorder-Pro/releases/latest/download/LensBorder-Pro-0.1.1-1.x86_64.rpm) 
 
 > 上述链接无反应请跳转 [Releases 页面](https://github.com/GreFir/LensBorder-Pro/releases) 查看。
 
