@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, Images, Layers, Download, X, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, Images, Layers, Download, X, Trash2, Check } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const trayVariants = {
@@ -27,11 +28,30 @@ export default function ImageTray({
   isOpen,
   onToggle,
   onSelect,
+  onApplyToOthers,
   onExportAll,
   onRemove,
   onClearAll,
 }) {
   const hasImages = images.length > 0;
+  const canApplyToOthers = images.length > 1 && !!currentId;
+  const [applyFeedback, setApplyFeedback] = useState('');
+
+  useEffect(() => {
+    if (!applyFeedback) return undefined;
+    const timer = setTimeout(() => setApplyFeedback(''), 1800);
+    return () => clearTimeout(timer);
+  }, [applyFeedback]);
+
+  const handleApplyToOthers = async () => {
+    if (!canApplyToOthers || !onApplyToOthers) return;
+    const appliedCount = await Promise.resolve(onApplyToOthers());
+    if (appliedCount > 0) {
+      setApplyFeedback(`已应用到 ${appliedCount} 张`);
+    } else {
+      setApplyFeedback('无可应用目标');
+    }
+  };
 
   return (
     <div className="pointer-events-none relative">
@@ -55,12 +75,20 @@ export default function ImageTray({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="pointer-events-auto border-t border-slate-200/60 bg-white/92 backdrop-blur-xl shadow-[0_-20px_50px_-30px_rgba(15,23,42,0.5)] dark:border-slate-800/70 dark:bg-slate-950/88"
+            className="pointer-events-auto relative border-t border-slate-200/60 bg-white/92 backdrop-blur-xl shadow-[0_-20px_50px_-30px_rgba(15,23,42,0.5)] dark:border-slate-800/70 dark:bg-slate-950/88"
             variants={trayVariants}
             initial="hidden"
             animate="show"
             exit="exit"
           >
+            <button
+              type="button"
+              onClick={onToggle}
+              className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-300 dark:hover:bg-slate-900"
+            >
+              <ChevronDown size={12} />
+              收起
+            </button>
             <div className="flex items-center justify-between px-4 py-2 text-xs text-slate-600 dark:text-slate-300">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900">
@@ -75,6 +103,21 @@ export default function ImageTray({
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!canApplyToOthers}
+                  onClick={handleApplyToOthers}
+                  className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
+                >
+                  <Layers size={12} />
+                  应用到其他图片
+                </button>
+                {applyFeedback && (
+                  <div className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                    <Check size={12} />
+                    {applyFeedback}
+                  </div>
+                )}
                 <button
                   type="button"
                   disabled={!hasImages}
@@ -93,14 +136,6 @@ export default function ImageTray({
                   <Download size={12} />
                   导出全部
                 </button>
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
-                >
-                  <ChevronDown size={14} />
-                  收起
-                </button>
               </div>
             </div>
 
@@ -115,7 +150,7 @@ export default function ImageTray({
                       onClick={() => onSelect(item.id)}
                       className={`group relative h-24 w-32 flex-shrink-0 overflow-hidden rounded-xl border transition ${
                         active
-                          ? 'border-slate-900 ring-2 ring-slate-900/40 dark:border-white dark:ring-white/40'
+                          ? 'border-slate-900 ring-2 ring-slate-900/65 shadow-[0_12px_26px_-10px_rgba(15,23,42,0.62)] -translate-y-0.5 dark:border-white dark:ring-white/65'
                           : 'border-slate-200 hover:border-slate-400 dark:border-slate-800'
                       }`}
                       variants={thumbVariants}
@@ -131,6 +166,14 @@ export default function ImageTray({
                         loading="lazy"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/0 to-black/0"></div>
+                      {active && (
+                        <div className="absolute left-2 top-2 rounded-full bg-slate-900/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow dark:bg-white/90 dark:text-slate-900">
+                          当前
+                        </div>
+                      )}
+                      {active && (
+                        <div className="pointer-events-none absolute inset-1 rounded-lg border-2 border-white/75 dark:border-white/65"></div>
+                      )}
                       <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1 text-[11px] font-semibold text-white drop-shadow">
                         <Layers size={12} />
                         <span className="truncate">{item.name}</span>

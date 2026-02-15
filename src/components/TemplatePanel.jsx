@@ -1,5 +1,6 @@
-import { Upload, Camera, ZoomIn, ZoomOut, Download } from 'lucide-react';
+import { Upload, Camera, ZoomIn, ZoomOut, Download, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TEMPLATES } from '../constants/templates';
+import { motion } from 'framer-motion';
 
 const Section = ({ title, subtitle, children }) => (
   <div className="space-y-3">
@@ -107,6 +108,18 @@ const TemplatePreview = ({ id }) => {
       </div>
     );
   }
+  if (id === 'camera-brand-strip') {
+    return (
+      <div className="relative h-14 w-20 rounded-lg border border-slate-200 bg-white">
+        <div className="absolute inset-2 rounded-sm bg-slate-200"></div>
+        <div className="absolute bottom-1 left-0 right-0 h-4 border-t border-slate-200 bg-white">
+          <div className="absolute left-2 top-1 h-1 w-6 rounded-full bg-slate-700"></div>
+          <div className="absolute right-2 top-1 h-1 w-8 rounded-full bg-slate-700"></div>
+          <div className="absolute right-8 top-0.5 h-2.5 w-px bg-slate-300"></div>
+        </div>
+      </div>
+    );
+  }
   if (id === 'mono') {
     return (
       <div className="relative h-14 w-20 rounded-lg border border-slate-200 bg-white">
@@ -139,6 +152,8 @@ export default function TemplatePanel({
   onExportQualityChange,
   themeMode,
   onThemeModeChange,
+  isCollapsed,
+  onToggleCollapse,
 }) {
   const zoomPercent = Math.round(zoom * 100);
   const qualityPercent = Math.round(exportQuality * 100);
@@ -146,21 +161,131 @@ export default function TemplatePanel({
     onZoomChange(clampZoom(value));
   };
 
-  return (
-    <aside className="flex h-screen w-full flex-col border-r border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_20px_60px_-40px_rgba(15,23,42,0.5)] dark:border-slate-800 dark:bg-slate-950/70 md:w-[340px]">
-      <div className="border-b border-slate-200/70 px-6 py-5 dark:border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-md shadow-slate-900/30 dark:bg-white dark:text-slate-900">
-            <Camera size={18} />
+  if (isCollapsed) {
+    return (
+      <motion.aside
+        initial={{ width: 340, opacity: 0.96 }}
+        animate={{ width: 96, opacity: 1 }}
+        transition={{ duration: 0.26, ease: [0.22, 0.61, 0.36, 1] }}
+        className="flex h-screen flex-col overflow-hidden border-r border-slate-200/70 bg-white/88 backdrop-blur-xl shadow-[0_20px_60px_-40px_rgba(15,23,42,0.5)] dark:border-slate-800 dark:bg-slate-950/75"
+      >
+        <div className="flex flex-col items-center gap-2 border-b border-slate-200/70 px-2 py-3 dark:border-slate-800">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900">
+            <Camera size={15} />
           </div>
-          <div>
-            <div className="text-lg font-semibold tracking-tight">LensBorder Pro</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">模板与素材</div>
-          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="rounded-lg border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
+            aria-label="展开左侧面板"
+          >
+            <ChevronRight size={14} />
+          </button>
         </div>
-      </div>
 
-      <div className="flex-1 space-y-8 overflow-y-auto px-6 py-6 custom-scrollbar">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-2 border-b border-slate-200/70 px-2 py-3 dark:border-slate-800"
+        >
+          <label className="flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-700 transition hover:border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-900">
+            <Plus size={16} />
+            <input
+              type="file"
+              accept="image/*,.heic,.heif"
+              multiple
+              onChange={onUpload}
+              className="hidden"
+            />
+          </label>
+
+          <button
+            type="button"
+            disabled={!hasImage}
+            onClick={onDownload}
+            className="flex w-full items-center justify-center rounded-xl bg-slate-900 p-2 text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-900"
+            aria-label="导出当前图片"
+          >
+            <Download size={14} />
+          </button>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.22, delay: 0.04 }}
+          className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar"
+        >
+          <div className="space-y-2">
+            {TEMPLATES.map((template) => {
+              const active = template.id === config.template;
+              return (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => onTemplateChange(template.id)}
+                  className={`w-full rounded-xl border p-1.5 transition ${
+                    active
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-md shadow-slate-900/20'
+                      : 'border-slate-200 bg-white/70 text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200'
+                  }`}
+                  title={template.label}
+                >
+                  <div className="flex justify-center">
+                    <div className="origin-center scale-[0.72]">
+                      <TemplatePreview id={template.id} />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      </motion.aside>
+    );
+  }
+
+  return (
+    <motion.aside
+      initial={{ width: 96, opacity: 0.96 }}
+      animate={{ width: 340, opacity: 1 }}
+      transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
+      className="flex h-screen flex-col overflow-hidden border-r border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_20px_60px_-40px_rgba(15,23,42,0.5)] dark:border-slate-800 dark:bg-slate-950/70"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+        className="border-b border-slate-200/70 px-6 py-5 dark:border-slate-800"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-md shadow-slate-900/30 dark:bg-white dark:text-slate-900">
+              <Camera size={18} />
+            </div>
+            <div>
+              <div className="text-lg font-semibold tracking-tight">LensBorder Pro</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">模板与素材</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="rounded-xl border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-900"
+            aria-label="收起左侧面板"
+          >
+            <ChevronLeft size={16} />
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.24, delay: 0.05 }}
+        className="flex-1 space-y-8 overflow-y-auto px-6 py-6 custom-scrollbar"
+      >
         <Section title="素材导入" subtitle="本地处理，不上传服务器">
           <div className="relative">
             <input
@@ -306,7 +431,7 @@ export default function TemplatePanel({
             })}
           </div>
         </Section>
-      </div>
-    </aside>
+      </motion.div>
+    </motion.aside>
   );
 }

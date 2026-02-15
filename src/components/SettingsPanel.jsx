@@ -82,6 +82,7 @@ export default function SettingsPanel({
   const showCreatorSignatureControls = config.template === 'creator-signature';
   const showMetaOffsetControls = ['creator-signature', 'glass-brand'].includes(config.template);
   const showPalettePoemControls = config.template === 'palette-poem';
+  const showCameraBrandStripControls = config.template === 'camera-brand-strip';
 
   const baseClass =
     'absolute z-30 flex flex-col border border-slate-200/70 bg-white/85 shadow-2xl shadow-slate-900/20 backdrop-blur transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-950/80';
@@ -337,6 +338,73 @@ export default function SettingsPanel({
                   step="0.05"
                   value={config.shadowOpacity}
                   onChange={(event) => updateConfig('shadowOpacity', parseFloat(event.target.value))}
+                  className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+                />
+              </div>
+            </div>
+          </Section>
+        )}
+
+        {showCameraBrandStripControls && (
+          <Section title="品牌 Logo 缩放" subtitle="仅作用于 Camera Brand Strip 模板，自动避免与分割线重叠">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>Logo 缩放</span>
+                  <span className="font-mono text-slate-400">{(config.cameraBrandLogoScale || 1).toFixed(2)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.7"
+                  max="2"
+                  step="0.05"
+                  value={config.cameraBrandLogoScale || 1}
+                  onChange={(event) => updateConfig('cameraBrandLogoScale', parseFloat(event.target.value))}
+                  className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>Logo 到分隔线间距</span>
+                  <span className="font-mono text-slate-400">{(config.cameraBrandDividerGap ?? 1.5).toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="6"
+                  step="0.1"
+                  value={config.cameraBrandDividerGap ?? 1.5}
+                  onChange={(event) => updateConfig('cameraBrandDividerGap', parseFloat(event.target.value))}
+                  className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>参数到分隔线间距</span>
+                  <span className="font-mono text-slate-400">{(config.cameraBrandRightTextGap ?? 2.2).toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.8"
+                  max="8"
+                  step="0.1"
+                  value={config.cameraBrandRightTextGap ?? 2.2}
+                  onChange={(event) => updateConfig('cameraBrandRightTextGap', parseFloat(event.target.value))}
+                  className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>参数文本框长度</span>
+                  <span className="font-mono text-slate-400">{Math.round(config.cameraBrandRightTextWidth ?? 96)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="60"
+                  max="100"
+                  step="1"
+                  value={config.cameraBrandRightTextWidth ?? 96}
+                  onChange={(event) => updateConfig('cameraBrandRightTextWidth', parseFloat(event.target.value))}
                   className="h-1.5 w-full cursor-pointer accent-slate-900 dark:accent-slate-100"
                 />
               </div>
