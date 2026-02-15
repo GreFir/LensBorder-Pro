@@ -1,6 +1,9 @@
+import { getCameraBrandLogoSrc, matchCameraBrand } from './logoAssets';
+
 const FONT_FAMILIES = {
   sans: "'Manrope', sans-serif",
   serif: "'Cormorant Garamond', serif",
+  times: "'Times New Roman', Times, serif",
 };
 
 const TEMPLATE_STYLES = {
@@ -27,6 +30,7 @@ const TEMPLATE_STYLES = {
   atelier: { frameScale: 1.5, bottomScale: 1.1 },
   monolith: { frameScale: 0.7, bottomScale: 0.6 },
   folio: { frameScale: 1.3, bottomScale: 1.05 },
+  'camera-brand-strip': { frameScale: 1, bottomScale: 1.08 },
 };
 
 const compact = (items) => items.filter(Boolean);
@@ -946,12 +950,18 @@ const drawGlassframe = (ctx, layout, config, text, image) => {
 };
 
 const overlayImageCache = new Map();
+const OVERLAY_READY_EVENT = 'lensborder-overlay-ready';
 
 const getOverlayImage = (src) => {
   if (!src) return null;
   const cached = overlayImageCache.get(src);
   if (cached) return cached.complete ? cached : null;
   const img = new Image();
+  img.onload = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(OVERLAY_READY_EVENT));
+    }
+  };
   img.src = src;
   overlayImageCache.set(src, img);
   return null;
@@ -1251,6 +1261,183 @@ const drawGlassBrand = (ctx, layout, config, text, image, meta = {}) => {
   ctx.shadowBlur = 0;
 };
 
+const drawCameraBrandStrip = (ctx, layout, config, text, _image, meta = {}) => {
+  const { canvasWidth, framePadding, textY, baseFont } = layout;
+  const visibility = config.fieldVisibility || {};
+  const read = (key) => (visibility[key] ? (meta[key] || '').toString().trim() : '');
+
+  // 1. 数据准备
+  const make = read('make');
+  const model = read('model');
+  const lens = read('lens');
+  const dateTime = read('dateTime');
+
+  const leftTitle = model || make || 'CAMERA';
+  const leftSubtitle = dateTime || '';
+  const rightMain = text.rightLine || compact([make, model]).join(' ');
+  const rightSub = lens || compact([make, model]).join(' ');
+  const matchedBrand = matchCameraBrand(meta);
+  const logoSrc = matchedBrand?.logoSrc || getCameraBrandLogoSrc(meta);
+  const logoImage = getOverlayImage(logoSrc);
+
+  // 2. 布局计算
+  const contentWidth = canvasWidth - framePadding * 2;
+  // 比例分配：左侧 36%，Logo 24%，右侧 40%
+  const leftWidth = contentWidth * 0.36;
+  const logoWidth = contentWidth * 0.24;
+  const rightWidth = contentWidth - leftWidth - logoWidth;
+  // 固定百分比间距：logo 到分隔线的留白占整行宽度
+  const dividerGapRatio = Math.min(0.03, Math.max(0.005, (config.cameraBrandDividerGap ?? 1.5) / 100));
+  const rightTextGapRatio = Math.min(
+    0.08,
+    Math.max(0.008, (config.cameraBrandRightTextGap ?? 2.2) / 100)
+  );
+
+  const leftX = framePadding;
+  const logoCenterX = framePadding + leftWidth + logoWidth / 2;
+  
+  // 右侧区域的起始点（也是 Logo 区域的终点）
+  const rightX = framePadding + leftWidth + logoWidth; 
+
+  // 右侧参数列固定在右侧；分隔线与参数的距离由滑块控制
+  const rightTextBaseX = rightX + rightWidth;
+  const rightTextWidthRatio = Math.min(
+    1,
+    Math.max(0.6, (config.cameraBrandRightTextWidth ?? 96) / 100)
+  );
+  const rightTextMaxWidth = rightWidth * rightTextWidthRatio;
+  const rightTextLeftX = rightTextBaseX - rightTextMaxWidth;
+  const rawSeparatorX = rightTextLeftX - contentWidth * rightTextGapRatio;
+  const separatorMinX = framePadding + leftWidth + logoWidth * 0.45;
+  const separatorMaxX = rightTextLeftX - Math.max(6, baseFont * 0.24);
+  const separatorX = Math.min(separatorMaxX, Math.max(separatorMinX, rawSeparatorX));
+
+  const titleY = textY - baseFont * 0.58;
+  const subY = textY + baseFont * 0.72;
+
+  // 3. 绘制分割线 (在 Logo 和 右侧参数 之间)
+  if (config.colors.muted) {
+    ctx.strokeStyle = withAlpha(config.colors.muted, 0.38);
+    ctx.lineWidth = Math.max(1, baseFont * 0.04);
+    ctx.beginPath();
+    // 稍微调整一下线的高度，让它看起来更像一个分隔符
+    ctx.moveTo(separatorX, textY - baseFont * 1.0);
+    ctx.lineTo(separatorX, textY + baseFont * 1.0);
+    ctx.stroke();
+  }
+
+  // 4. 绘制左侧文字 (左对齐)
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  if (leftTitle) {
+    ctx.font = `600 ${baseFont * 1.18}px ${FONT_FAMILIES.sans}`;
+    ctx.fillStyle = config.colors.ink;
+    ctx.fillText(fitText(ctx, leftTitle, leftWidth * 0.95), leftX, titleY);
+  }
+  if (leftSubtitle) {
+    ctx.font = `500 ${baseFont * 0.9}px ${FONT_FAMILIES.sans}`;
+    ctx.fillStyle = config.colors.muted;
+    ctx.fillText(fitText(ctx, leftSubtitle, leftWidth * 0.95), leftX, subY);
+  }
+
+  // 5. 绘制 Logo (居中，等比例缩放)
+  if (logoImage) {
+    const brandScaleMap = {
+      sigma: 1.3,
+      leica: 1.38,
+      olympus: 1.28,
+      nikon: 1.28,
+    };
+    const brandScale = brandScaleMap[matchedBrand?.key] || 1;
+    const userScale = Math.min(2, Math.max(0.7, config.cameraBrandLogoScale || 1));
+    const finalScale = brandScale * userScale;
+    const imgWidth = logoImage.width || 200;
+    const imgHeight = logoImage.height || 100;
+    const aspectRatio = imgWidth / imgHeight;
+
+    const targetHeight = baseFont * 1.15 * finalScale;
+    let drawWidth = targetHeight * aspectRatio;
+    let drawHeight = targetHeight;
+
+    // 宽度限制：防止 Logo 太宽撞到右边的分割线
+    // 留出 15% 的安全余量
+    const dividerSafeGap = Math.max(contentWidth * dividerGapRatio, 8);
+    const leftSafeGap = Math.max(4, baseFont * 0.16);
+    const logoLeftLimit = framePadding + leftWidth + leftSafeGap;
+    const logoRightLimit = separatorX - dividerSafeGap;
+    const maxLogoWidth = Math.max(12, logoRightLimit - logoLeftLimit);
+    
+    if (drawWidth > maxLogoWidth) {
+      drawWidth = maxLogoWidth;
+      drawHeight = drawWidth / aspectRatio;
+    }
+
+    // 贴分隔线右对齐，保证调节间距时视觉变化明确
+    const drawX = Math.max(logoLeftLimit, logoRightLimit - drawWidth);
+    const drawY = textY - drawHeight / 2; 
+
+    ctx.drawImage(logoImage, drawX, drawY, drawWidth, drawHeight);
+    
+  } else {
+    const fallbackBrand = (matchedBrand?.key || make || model || '').toUpperCase();
+    if (fallbackBrand) {
+      ctx.textAlign = 'center';
+      ctx.font = `700 ${baseFont * 0.76}px ${FONT_FAMILIES.serif}`;
+      ctx.fillStyle = config.colors.ink;
+      ctx.fillText(fitText(ctx, fallbackBrand, logoWidth * 0.9), logoCenterX, textY + baseFont * 0.04);
+    }
+  }
+
+  // 6. 绘制右侧文字 (右对齐，右侧固定)
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+
+  const drawAdaptiveRightLine = (line, options) => {
+    if (!line) return;
+    const {
+      color,
+      y,
+      weight = 300,
+      startScale,
+      minScale,
+    } = options;
+
+    const minFontPx = 9;
+    let size = Math.max(minFontPx, baseFont * startScale);
+    const minSize = Math.max(minFontPx, baseFont * minScale);
+
+    while (size >= minSize) {
+      ctx.font = `${weight} ${size}px ${FONT_FAMILIES.times}`;
+      if (ctx.measureText(line).width <= rightTextMaxWidth) {
+        ctx.fillStyle = color;
+        ctx.fillText(line, rightTextBaseX, y);
+        return;
+      }
+      size -= Math.max(0.35, baseFont * 0.03);
+    }
+
+    ctx.font = `${weight} ${minSize}px ${FONT_FAMILIES.times}`;
+    ctx.fillStyle = color;
+    ctx.fillText(fitText(ctx, line, rightTextMaxWidth), rightTextBaseX, y);
+  };
+
+  drawAdaptiveRightLine(rightMain, {
+    color: config.colors.ink,
+    y: titleY - baseFont * 0.06,
+    weight: 300,
+    startScale: 0.98,
+    minScale: 0.62,
+  });
+
+  drawAdaptiveRightLine(rightSub, {
+    color: config.colors.muted,
+    y: subY + baseFont * 0.04,
+    weight: 300,
+    startScale: 0.72,
+    minScale: 0.54,
+  });
+};
+
 const TEMPLATE_RENDERERS = {
   classic: drawClassic,
   postcard: drawPostcard,
@@ -1275,6 +1462,7 @@ const TEMPLATE_RENDERERS = {
   atelier: drawAtelier,
   monolith: drawMonolith,
   folio: drawFolio,
+  'camera-brand-strip': drawCameraBrandStrip,
 };
 
 export const renderFrame = (ctx, image, config, meta, options = {}) => {

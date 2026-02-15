@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "LensBorder-Pro",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.Redwood.lensborder",
   "build": {
     "frontendDist": "../dist",

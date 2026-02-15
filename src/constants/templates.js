@@ -22,6 +22,7 @@ export const TEMPLATES = [
   { id: 'atelier', label: 'Atelier', caption: '工作室质感', hasBottomBar: true },
   { id: 'monolith', label: 'Monolith', caption: '极简深色块', hasBottomBar: true },
   { id: 'folio', label: 'Folio', caption: '折页式标题', hasBottomBar: true },
+  { id: 'camera-brand-strip', label: 'Camera Brand Strip', caption: '品牌 Logo + 三段式参数栏', hasBottomBar: true },
 ];
 
 export const TEMPLATE_IDS = TEMPLATES.map((template) => template.id);

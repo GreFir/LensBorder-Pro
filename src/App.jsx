@@ -20,6 +20,10 @@ const loadHeicConverter = async () => {
 const PREVIEW_MAX_DIMENSION = 2000;
 const THEME_STORAGE_KEY = 'lensborder-theme-mode';
 const DEFAULT_EXPORT_QUALITY = 0.95;
+const RENDER_COLOR_SPACE = 'srgb';
+
+const getRender2DContext = (canvas) =>
+  canvas.getContext('2d', { colorSpace: RENDER_COLOR_SPACE }) || canvas.getContext('2d');
 
 const getSystemDarkPreference = () =>
   typeof window !== 'undefined' &&
@@ -128,6 +132,10 @@ const getDefaultConfig = () => {
     noirBorderOpacity: 0.85,
     plaqueOpacity: 0.9,
     monolithOpacity: 0.18,
+    cameraBrandLogoScale: 1,
+    cameraBrandDividerGap: 1.5,
+    cameraBrandRightTextGap: 2.2,
+    cameraBrandRightTextWidth: 96,
     imageRadius: 0,
     textPosition: 'bottom',
     paperGradientEnabled: false,
@@ -157,6 +165,7 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [autoFit, setAutoFit] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [templatePanelCollapsed, setTemplatePanelCollapsed] = useState(false);
   const [themeMode, setThemeMode] = useState(() => getInitialThemeMode());
   const [isSystemDark, setIsSystemDark] = useState(() => getSystemDarkPreference());
   const [exportQuality, setExportQuality] = useState(DEFAULT_EXPORT_QUALITY);
@@ -186,10 +195,8 @@ export default function App() {
 
   useEffect(() => {
     if (!image || !canvasRef.current) return;
-    const ctx =
-      canvasRef.current.getContext('2d', { colorSpace: 'display-p3' }) ||
-      canvasRef.current.getContext('2d');
-    setSupportsHdr(!!ctx && ctx.colorSpace === 'display-p3');
+    const ctx = getRender2DContext(canvasRef.current);
+    setSupportsHdr(false);
     if (!ctx) return;
 
     const maxDim = Math.max(image.width, image.height);
@@ -201,6 +208,15 @@ export default function App() {
 
     return () => cancelAnimationFrame(raf);
   }, [image, config, meta]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const handleOverlayReady = () => {
+      setConfig((prev) => ({ ...prev }));
+    };
+    window.addEventListener('lensborder-overlay-ready', handleOverlayReady);
+    return () => window.removeEventListener('lensborder-overlay-ready', handleOverlayReady);
+  }, []);
 
   useEffect(() => {
     if (!image) return;
@@ -493,6 +509,27 @@ export default function App() {
     setConfig(getDefaultConfig());
   };
 
+  const cloneConfig = (value) => {
+    if (typeof structuredClone === 'function') return structuredClone(value);
+    return JSON.parse(JSON.stringify(value));
+  };
+
+  const handleApplyConfigToOthers = () => {
+    if (!currentImageId || images.length < 2) return 0;
+    syncCurrentEntry();
+    const appliedCount = images.filter((entry) => entry.id !== currentImageId).length;
+    setImages((prev) =>
+      prev.map((entry) => {
+        if (entry.id === currentImageId) return entry;
+        const nextConfig = cloneConfig(config);
+        // Preserve per-image extracted palette so metadata-related auto palette remains local.
+        nextConfig.imagePalette = entry.config?.imagePalette ?? null;
+        return { ...entry, config: nextConfig };
+      })
+    );
+    return appliedCount;
+  };
+
   const dragCounter = useRef(0);
 
   const handleDragOver = (event) => {
@@ -537,8 +574,7 @@ export default function App() {
     if (!image) return;
 
     const exportCanvas = document.createElement('canvas');
-    const exportCtx =
-      exportCanvas.getContext('2d', { colorSpace: 'display-p3' }) || exportCanvas.getContext('2d');
+    const exportCtx = getRender2DContext(exportCanvas);
     if (!exportCtx) return;
 
     renderFrame(exportCtx, image, config, meta, { scale: 1, preview: false });
@@ -566,8 +602,7 @@ export default function App() {
 
   const renderEntryToBlob = async (entry) => {
     const exportCanvas = document.createElement('canvas');
-    const exportCtx =
-      exportCanvas.getContext('2d', { colorSpace: 'display-p3' }) || exportCanvas.getContext('2d');
+    const exportCtx = getRender2DContext(exportCanvas);
     if (!exportCtx) throw new Error('Canvas unavailable');
     renderFrame(exportCtx, entry.image, entry.config, entry.meta, { scale: 1, preview: false });
     return createJpegBlob(exportCanvas, exportQuality);
@@ -640,6 +675,8 @@ export default function App() {
             onExportQualityChange={setExportQuality}
             themeMode={themeMode}
             onThemeModeChange={setThemeMode}
+            isCollapsed={templatePanelCollapsed}
+            onToggleCollapse={() => setTemplatePanelCollapsed((prev) => !prev)}
           />
 
           <div className="flex-1 relative flex flex-col min-h-0">
@@ -676,6 +713,7 @@ export default function App() {
           isOpen={trayOpen}
           onToggle={() => setTrayOpen((prev) => !prev)}
           onSelect={handleSelectImage}
+          onApplyToOthers={handleApplyConfigToOthers}
           onExportAll={handleExportAll}
           onRemove={handleRemoveImage}
           onClearAll={handleClearImages}
