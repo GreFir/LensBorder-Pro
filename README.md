@@ -4,7 +4,7 @@
 
 ![alt text](image.png)
 
-## 📥 下载安装 (Latest Version: v0.1.0)
+## 📥 下载安装 (Latest Version: v0.1.1)
 
 所有安装包均已通过 GitHub Actions 自动构建，所有平台版本均已发布：
 
