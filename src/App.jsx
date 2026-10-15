@@ -4,6 +4,7 @@ import SettingsPanel from './components/SettingsPanel';
 import PreviewArea from './components/PreviewArea';
 import ImageTray from './components/ImageTray';
 import { renderFrame } from './utils/canvasUtils';
+import { getTemplateConfig } from './utils/templateConfig';
 import { createEmptyMeta, extractExif } from './utils/exifUtils';
 import { parseGpx, parseCameraTime, matchGpxPoint, withGpxOverlay } from './utils/gpxUtils';
 import { DEFAULT_VISIBILITY } from './constants/metadataFields';
@@ -401,14 +402,7 @@ export default function App() {
   };
 
   const handleTemplateChange = (templateId) => {
-    setConfig((prev) => {
-      let next = { ...prev, template: templateId };
-      if (templateId === 'cinema' && prev.paletteId !== 'custom') {
-        const palette = getPaletteById('cinema');
-        next = { ...next, paletteId: palette.id, colors: palette.colors };
-      }
-      return next;
-    });
+    setConfig((prev) => getTemplateConfig(prev, templateId));
   };
 
   const updateConfig = (key, value) => {
@@ -704,6 +698,8 @@ export default function App() {
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           <TemplatePanel
+            image={image}
+            meta={meta}
             config={config}
             exifStatus={exifStatus}
             isProcessing={isProcessing}

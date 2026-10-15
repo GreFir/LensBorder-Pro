@@ -1,5 +1,10 @@
-// A neutral schematic of the photo template: intentionally not recolored by UI themes.
-export default function TemplateThumbnail({ id }) {
+import LiveTemplateThumbnail from './LiveTemplateThumbnail';
+
+// Keep the neutral schematic only until a photo has been imported.
+export default function TemplateThumbnail({ id, image, config, meta }) {
+  if (image && config) {
+    return <LiveTemplateThumbnail key={image.src} id={id} image={image} config={config} meta={meta} />;
+  }
   const dark = ['minimal', 'cinema', 'noir', 'monolith'].includes(id);
   const glass = ['glassframe', 'glass-brand'].includes(id);
   const postcard = ['postcard', 'postcard-note'].includes(id);

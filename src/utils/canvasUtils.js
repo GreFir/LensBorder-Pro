@@ -1467,33 +1467,40 @@ const TEMPLATE_RENDERERS = {
 
 export const renderFrame = (ctx, image, config, meta, options = {}) => {
   if (!ctx || !image) return;
-  const { scale = 1 } = options;
+  const { scale = 1, maxDimension } = options;
+  const bounded = Number.isFinite(maxDimension) && maxDimension > 0;
+  let layoutImage = image;
   let drawImageSource = image;
   let drawConfig = config;
   if (config.textPosition === 'right' && RIGHT_TEXT_TEMPLATES.has(config.template)) {
     const rotated = document.createElement('canvas');
-    rotated.width = image.height;
-    rotated.height = image.width;
+    // Thumbnail-only raster limit; preserve original dimensions for layout.
+    const rotationScale = bounded ? Math.min(1, maxDimension / Math.max(image.width, image.height)) : 1;
+    rotated.width = Math.max(1, Math.round(image.height * rotationScale));
+    rotated.height = Math.max(1, Math.round(image.width * rotationScale));
     const rctx = rotated.getContext('2d');
     if (rctx) {
       rctx.save();
-      rctx.translate(rotated.width / 2, rotated.height / 2);
+      rctx.scale(rotationScale, rotationScale);
+      rctx.translate(image.height / 2, image.width / 2);
       rctx.rotate(Math.PI / 2);
       rctx.drawImage(image, -image.width / 2, -image.height / 2);
       rctx.restore();
       drawImageSource = rotated;
+      layoutImage = { width: image.height, height: image.width };
       drawConfig = { ...config, textPosition: 'bottom' };
     }
   }
 
-  const layout = computeLayout(drawImageSource, drawConfig);
+  const layout = computeLayout(layoutImage, drawConfig);
   const { canvasWidth, canvasHeight } = layout;
 
-  ctx.canvas.width = Math.max(1, Math.round(canvasWidth * scale));
-  ctx.canvas.height = Math.max(1, Math.round(canvasHeight * scale));
+  const renderScale = bounded ? Math.min(scale, maxDimension / Math.max(canvasWidth, canvasHeight)) : scale;
+  ctx.canvas.width = Math.max(1, Math.round(canvasWidth * renderScale));
+  ctx.canvas.height = Math.max(1, Math.round(canvasHeight * renderScale));
 
   ctx.save();
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
