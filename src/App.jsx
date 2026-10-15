@@ -5,6 +5,7 @@ import PreviewArea from './components/PreviewArea';
 import ImageTray from './components/ImageTray';
 import { renderFrame } from './utils/canvasUtils';
 import { createEmptyMeta, extractExif } from './utils/exifUtils';
+import { parseGpx, parseCameraTime, matchGpxPoint, withGpxOverlay } from './utils/gpxUtils';
 import { DEFAULT_VISIBILITY } from './constants/metadataFields';
 import { getPaletteById } from './constants/palettes';
 import { extractImagePalette } from './utils/colorUtils';
@@ -173,6 +174,10 @@ export default function App() {
   const resolvedTheme = themeMode === 'system' ? (isSystemDark ? 'dark' : 'light') : themeMode;
 
   const [meta, setMeta] = useState(() => createEmptyMeta());
+  const [gpxPoints, setGpxPoints] = useState([]);
+  const [gpxName, setGpxName] = useState('');
+  const [gpxOffset, setGpxOffset] = useState(0);
+  const [gpxStatus, setGpxStatus] = useState('');
 
   const [config, setConfig] = useState(() => getDefaultConfig());
 
@@ -268,6 +273,42 @@ export default function App() {
     };
   }, []);
 
+  const applyGpx = (entries, points, offset) => entries.map((entry) => {
+    const time = parseCameraTime(entry.meta.captureTime, offset);
+    const position = matchGpxPoint(points, time);
+    return { ...entry, config: withGpxOverlay(entry.config, position) };
+  });
+
+  const importGpx = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const points = parseGpx(await file.text());
+      setGpxPoints(points);
+      setGpxName(file.name);
+      setGpxStatus(`已读取 ${points.length} 个轨迹点`);
+      setImages((prev) => applyGpx(prev, points, gpxOffset));
+      if (currentImageId) {
+        const position = matchGpxPoint(points, parseCameraTime(meta.captureTime, gpxOffset));
+        setConfig((prev) => withGpxOverlay(prev, position));
+      }
+    } catch (error) {
+      setGpxStatus(`GPX 导入失败：${error.message}`);
+    }
+    event.target.value = '';
+  };
+
+  const changeGpxOffset = (value) => {
+    const offset = Number(value);
+    if (!Number.isFinite(offset)) return;
+    setGpxOffset(offset);
+    setImages((prev) => applyGpx(prev, gpxPoints, offset));
+    if (currentImageId) {
+      setConfig((prev) => withGpxOverlay(prev,
+        matchGpxPoint(gpxPoints, parseCameraTime(meta.captureTime, offset))));
+    }
+  };
+
   const loadImageFile = async (file) => {
     let blob = file;
     const ext = (file.name || '').toLowerCase();
@@ -336,10 +377,11 @@ export default function App() {
       }
     }
 
-    setImages((prev) => [...prev, ...loaded]);
+    const matched = applyGpx(loaded, gpxPoints, gpxOffset);
+    setImages((prev) => [...prev, ...matched]);
 
-    if (!currentImageId && loaded[0]) {
-      const first = loaded[0];
+    if (!currentImageId && matched[0]) {
+      const first = matched[0];
       setCurrentImageId(first.id);
       setImage(first.image);
       setImageInfo(first.imageInfo);
@@ -662,6 +704,11 @@ export default function App() {
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           <TemplatePanel
+            onGpxUpload={importGpx}
+            gpxName={gpxName}
+            gpxStatus={gpxStatus}
+            gpxOffset={gpxOffset}
+            onGpxOffsetChange={changeGpxOffset}
             config={config}
             exifStatus={exifStatus}
             isProcessing={isProcessing}
