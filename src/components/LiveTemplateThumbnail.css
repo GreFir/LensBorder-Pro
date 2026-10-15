@@ -1,0 +1,36 @@
+/* Neutral backing: UI themes must not recolor the photograph or its frame. */
+.lb-template-live {
+  position: relative;
+  display: flex;
+  width: 100%;
+  aspect-ratio: 128 / 84;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #e8eaed;
+  contain: layout paint;
+}
+.lb-template-live .lb-template-live-canvas,
+.lb-template-live .lb-thumbnail-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  min-width: 0;
+}
+.lb-template-live:not([data-preview-state='ready']) .lb-template-live-canvas {
+  visibility: hidden;
+}
+.lb-template-live .lb-thumbnail-fallback { position: absolute; inset: 0; }
+.lb-thumbnail-message {
+  position: absolute;
+  bottom: 6px;
+  max-width: calc(100% - 8px);
+  border-radius: 4px;
+  padding: 3px 5px;
+  font: 10px/1.3 sans-serif;
+  color: #364152;
+  background: rgba(255,255,255,.92);
+}

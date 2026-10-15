@@ -1,0 +1,81 @@
+name: Integrate live thumbnails (temporary)
+on:
+  push:
+    branches: [feat/live-template-thumbnails]
+    paths: ['.github/workflows/prepare-live-thumbnails.yml']
+permissions:
+  contents: write
+jobs:
+  integrate:
+    if: github.repository == 'GreFir/LensBorder-Pro' && github.ref == 'refs/heads/feat/live-template-thumbnails'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply guarded integration edits
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess
+          expected = {
+            'src/App.jsx': 'f41287f32298d1c4fc3d5fda825b268672e06fb0',
+            'src/components/TemplatePanel.jsx': 'f07c4146ec8c9f6981537f36acc8537955a1741b',
+            'src/components/TemplateThumbnail.jsx': '2c62f1e00e7b0b51caf19b18da60fa19d7364255',
+            'src/utils/canvasUtils.js': '2b41be57b466c0e4f0976b0b32ec2abfb7d9f5c5',
+          }
+          for path, sha in expected.items():
+            assert subprocess.check_output(['git', 'hash-object', path], text=True).strip() == sha, path
+          def replace(path, old, new):
+            p = Path(path); s = p.read_text()
+            assert s.count(old) == 1, (path, old[:100], s.count(old))
+            p.write_text(s.replace(old, new))
+          app = 'src/App.jsx'
+          replace(app, "import { renderFrame } from './utils/canvasUtils';", "import { renderFrame } from './utils/canvasUtils';\nimport { getTemplateConfig } from './utils/templateConfig';")
+          old = """    setConfig((prev) => {
+                let next = { ...prev, template: templateId };
+                if (templateId === 'cinema' && prev.paletteId !== 'custom') {
+                  const palette = getPaletteById('cinema');
+                  next = { ...next, paletteId: palette.id, colors: palette.colors };
+                }
+                return next;
+              });"""
+          # Strip only the YAML/Python indentation inserted after the first line.
+          old = old.replace('\n          ', '\n')
+          replace(app, old, '    setConfig((prev) => getTemplateConfig(prev, templateId));')
+          replace(app, '          <TemplatePanel\n', '          <TemplatePanel\n            image={image}\n            meta={meta}\n')
+          panel = 'src/components/TemplatePanel.jsx'
+          replace(panel, '  hasImage, onDownload, exportQuality, onExportQualityChange,', '  hasImage, image, meta, onDownload, exportQuality, onExportQualityChange,')
+          replace(panel, '<TemplateThumbnail id={template.id} />', '<TemplateThumbnail id={template.id} image={image} config={config} meta={meta} />')
+          replace(panel, "<small>{String(TEMPLATES.length).padStart(2, '0')} STYLES</small>", "<small>{hasImage ? '照片预览' : `${String(TEMPLATES.length).padStart(2, '0')} STYLES`}</small>")
+          thumb = 'src/components/TemplateThumbnail.jsx'
+          replace(thumb, '// A neutral schematic of the photo template: intentionally not recolored by UI themes.', "import LiveTemplateThumbnail from './LiveTemplateThumbnail';\n\n// Keep the neutral schematic only until a photo has been imported.")
+          replace(thumb, 'export default function TemplateThumbnail({ id }) {', 'export default function TemplateThumbnail({ id, image, config, meta }) {\n  if (image && config) {\n    return <LiveTemplateThumbnail key={image.src} id={id} image={image} config={config} meta={meta} />;\n  }')
+          canvas = 'src/utils/canvasUtils.js'
+          replace(canvas, '  const { scale = 1 } = options;\n  let drawImageSource = image;', '  const { scale = 1, maxDimension } = options;\n  const bounded = Number.isFinite(maxDimension) && maxDimension > 0;\n  let layoutImage = image;\n  let drawImageSource = image;')
+          replace(canvas, '    rotated.width = image.height;\n    rotated.height = image.width;', '    // Thumbnail-only raster limit; preserve original dimensions for layout.\n    const rotationScale = bounded ? Math.min(1, maxDimension / Math.max(image.width, image.height)) : 1;\n    rotated.width = Math.max(1, Math.round(image.height * rotationScale));\n    rotated.height = Math.max(1, Math.round(image.width * rotationScale));')
+          replace(canvas, '      rctx.translate(rotated.width / 2, rotated.height / 2);', '      rctx.scale(rotationScale, rotationScale);\n      rctx.translate(image.height / 2, image.width / 2);')
+          replace(canvas, '      drawImageSource = rotated;', '      drawImageSource = rotated;\n      layoutImage = { width: image.height, height: image.width };')
+          replace(canvas, '  const layout = computeLayout(drawImageSource, drawConfig);', '  const layout = computeLayout(layoutImage, drawConfig);')
+          replace(canvas, '  ctx.canvas.width = Math.max(1, Math.round(canvasWidth * scale));\n  ctx.canvas.height = Math.max(1, Math.round(canvasHeight * scale));', '  const renderScale = bounded ? Math.min(scale, maxDimension / Math.max(canvasWidth, canvasHeight)) : scale;\n  ctx.canvas.width = Math.max(1, Math.round(canvasWidth * renderScale));\n  ctx.canvas.height = Math.max(1, Math.round(canvasHeight * renderScale));')
+          replace(canvas, '  ctx.setTransform(scale, 0, 0, scale, 0, 0);', '  ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);')
+      - run: npm ci
+      - run: node --test tests/uiThemes.test.js tests/templatePreview.test.js
+      - run: npm run build
+      - name: Commit verified integration to feature branch only
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          actual=$(git ls-remote origin refs/heads/feat/live-template-thumbnails | cut -f1)
+          test "$actual" = "$EXPECTED_HEAD"
+          git diff --check
+          git diff --stat
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/App.jsx src/components/TemplatePanel.jsx src/components/TemplateThumbnail.jsx src/utils/canvasUtils.js
+          git commit -m "feat: connect per-photo template previews with bounded canvas rendering"
+          git push origin HEAD:refs/heads/feat/live-template-thumbnails
