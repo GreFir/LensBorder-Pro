@@ -1,4 +1,4 @@
-import { Upload, Camera, ZoomIn, ZoomOut, Download, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, Camera, ZoomIn, ZoomOut, Download, Plus, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import { TEMPLATES } from '../constants/templates';
 import { motion } from 'framer-motion';
 
@@ -216,20 +216,11 @@ export default function TemplatePanel({
           </button>
         </motion.div>
 
-      <div className="border-b border-slate-200/70 px-3 py-3 dark:border-slate-800">
-        <label className="block cursor-pointer rounded-lg border border-dashed border-slate-300 p-2 text-center text-xs dark:border-slate-700">
-          导入 GPX 轨迹
-          <input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxUpload} className="hidden" />
-        </label>
-        {gpxName && <p className="mt-1 truncate text-xs" title={gpxName}>{gpxName}</p>}
-        {gpxStatus && <p role="status" className="mt-1 text-xs text-slate-500">{gpxStatus}</p>}
-        <label className="mt-2 block text-xs text-slate-500">
-          相机时区 (UTC 偏移小时)
-          <input type="number" min="-12" max="14" step="0.25" value={gpxOffset / 60}
-            onChange={(event) => onGpxOffsetChange(Number(event.target.value) * 60)}
-            className="mt-1 w-full rounded border border-slate-300 bg-transparent p-1 dark:border-slate-700" />
-        </label>
-      </div>
+      <label title="导入 GPX 轨迹文件" aria-label="导入 GPX 轨迹文件"
+        className="mx-auto mb-2 flex w-11 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white p-3 text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+        <MapPin size={16} />
+        <input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxUpload} className="hidden" />
+      </label>
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -273,19 +264,29 @@ export default function TemplatePanel({
       transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
       className="flex h-screen flex-col overflow-hidden border-r border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_20px_60px_-40px_rgba(15,23,42,0.5)] dark:border-slate-800 dark:bg-slate-950/70"
     >
-      <div className="border-b border-slate-200/70 px-3 py-3 dark:border-slate-800">
-        <label className="block cursor-pointer rounded-lg border border-dashed border-slate-300 p-2 text-center text-xs dark:border-slate-700">
-          导入 GPX 轨迹
+      <div className="mx-5 mb-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+        <div className="mb-3 flex items-center gap-2">
+          <MapPin size={16} className="text-slate-700 dark:text-slate-200" />
+          <span className="text-xs font-semibold tracking-wide">轨迹定位</span>
+          {gpxName && <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">已导入</span>}
+        </div>
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs font-medium text-slate-600 transition hover:border-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300 dark:hover:border-slate-500">
+          <Upload size={15} />
+          {gpxName ? '更换 GPX 轨迹文件' : '选择 GPX 轨迹文件'}
           <input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxUpload} className="hidden" />
         </label>
-        {gpxName && <p className="mt-1 truncate text-xs" title={gpxName}>{gpxName}</p>}
-        {gpxStatus && <p role="status" className="mt-1 text-xs text-slate-500">{gpxStatus}</p>}
-        <label className="mt-2 block text-xs text-slate-500">
-          相机时区 (UTC 偏移小时)
-          <input type="number" min="-12" max="14" step="0.25" value={gpxOffset / 60}
-            onChange={(event) => onGpxOffsetChange(Number(event.target.value) * 60)}
-            className="mt-1 w-full rounded border border-slate-300 bg-transparent p-1 dark:border-slate-700" />
+        {gpxName && <p className="mt-2 truncate text-[11px] text-slate-500" title={gpxName}>{gpxName}</p>}
+        {gpxStatus && <p role="status" className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{gpxStatus}</p>}
+        <label className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+          <span>相机时区</span>
+          <select value={gpxOffset} onChange={(event) => onGpxOffsetChange(Number(event.target.value))}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+            {Array.from({ length: 27 }, (_, index) => index - 12).map((hour) => (
+              <option key={hour} value={hour * 60}>{`UTC${hour >= 0 ? '+' : ''}${hour}`}</option>
+            ))}
+          </select>
         </label>
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">按照片拍摄时间匹配轨迹，坐标自动添加到水印。</p>
       </div>
 
       <motion.div
