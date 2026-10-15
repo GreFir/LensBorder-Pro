@@ -9,7 +9,7 @@ const clampZoom = (value) => Math.min(3.5, Math.max(0.2, value));
 
 export default function TemplatePanel({
   config, exifStatus, isProcessing, onUpload, onTemplateChange, zoom, onZoomChange,
-  hasImage, onDownload, exportQuality, onExportQualityChange,
+  hasImage, image, meta, onDownload, exportQuality, onExportQualityChange,
   themeMode, onThemeModeChange, isCollapsed, onToggleCollapse,
 }) {
   const { style } = useUiTheme();
@@ -31,11 +31,11 @@ export default function TemplatePanel({
         {!isCollapsed && <div className="lb-import-status" role="status"><span className="lb-status-dot" data-state={exifStatus} />{exifStatus === 'ready' ? 'EXIF 已就绪' : exifStatus === 'error' ? 'EXIF 不可用，可手动输入' : '正在加载 EXIF'}</div>}
 
         <section className="lb-library" aria-label="水印模板">
-          {!isCollapsed && <div className="lb-section-heading"><span><Icon name="grid" size={16} />模板库</span><small>{String(TEMPLATES.length).padStart(2, '0')} STYLES</small></div>}
+          {!isCollapsed && <div className="lb-section-heading"><span><Icon name="grid" size={16} />模板库</span><small>{hasImage ? '照片预览' : `${String(TEMPLATES.length).padStart(2, '0')} STYLES`}</small></div>}
           <div className="lb-template-grid">
             {TEMPLATES.map((template, index) => (
               <button key={template.id} type="button" className="lb-template-card" aria-pressed={template.id === config.template} aria-label={template.label} onClick={() => onTemplateChange(template.id)} title={`${template.label} · ${template.caption}`}>
-                <TemplateThumbnail id={template.id} />
+                <TemplateThumbnail id={template.id} image={image} config={config} meta={meta} />
                 {!isCollapsed && <div className="lb-template-copy"><span className="lb-template-number">{String(index + 1).padStart(2, '0')}</span><strong>{template.label}</strong><small>{template.caption}</small></div>}
                 {template.id === config.template && <span className="lb-template-check"><Icon name="check" size={11} /></span>}
               </button>

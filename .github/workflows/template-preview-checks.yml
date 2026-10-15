@@ -1,0 +1,58 @@
+name: Live template preview checks
+on:
+  push:
+    branches: [feat/live-template-thumbnails]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/templatePreview.test.js'
+      - 'tests/browser/template-previews.cjs'
+      - 'package*.json'
+      - '.github/workflows/template-preview-checks.yml'
+permissions:
+  contents: read
+concurrency:
+  group: live-template-previews-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: node --test tests/uiThemes.test.js tests/templatePreview.test.js
+      - name: Production build
+        run: npm run build
+      - name: Install isolated browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/lb-browser" --no-package-lock --no-save playwright@1.56.1
+          "$RUNNER_TEMP/lb-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Actual app browser tests
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/lb-browser/node_modules/playwright
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/lb-vite.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/browser/template-previews.cjs
+      - name: Upload screenshots and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-template-preview-results
+          path: test-results/template-previews/
+          if-no-files-found: ignore
+          retention-days: 14
