@@ -1,0 +1,38 @@
+name: UI theme checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/uiThemes.test.js'
+      - 'package*.json'
+      - 'vite.config.js'
+      - '.github/workflows/ui-theme-checks.yml'
+  push:
+    branches: [feat/ui-themes-liquid-glass]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-theme-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: UI theme preference tests
+        run: node --test tests/uiThemes.test.js
+      - name: Production web build
+        run: npm run build
