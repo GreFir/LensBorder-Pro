@@ -1,207 +1,109 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileImage } from 'lucide-react';
+import { Icon, StudioIllustration } from '../themes/Icons';
 
 const clampZoom = (value) => Math.min(3.5, Math.max(0.2, value));
 
-export default function PreviewArea({
-  canvasRef,
-  hasImage,
-  zoom,
-  onZoomChange,
-  autoFit,
-  imageInfo,
-  supportsHdr,
-}) {
+export default function PreviewArea({ canvasRef, hasImage, zoom, onZoomChange, autoFit, imageInfo, supportsHdr }) {
   const viewportRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
 
-  const handleZoom = (value) => {
-    onZoomChange(clampZoom(value));
-  };
-
   const handleWheel = (event) => {
     if (!hasImage) return;
-    if (event.cancelable) {
-      event.preventDefault();
-    }
-    const delta = event.deltaY * -0.0015;
-    handleZoom(zoom + delta);
+    if (event.cancelable) event.preventDefault();
+    onZoomChange(clampZoom(zoom + event.deltaY * -0.0015));
   };
 
+  // Observe on image mount as well: the viewport does not exist in the empty state.
   useEffect(() => {
-    if (!viewportRef.current) return;
     const element = viewportRef.current;
-
+    if (!element) return;
     const updateSize = () => {
       const rect = element.getBoundingClientRect();
       setViewportSize({ width: rect.width, height: rect.height });
     };
-
     updateSize();
     const observer = new ResizeObserver(updateSize);
     observer.observe(element);
-
     return () => observer.disconnect();
-  }, []);
+  }, [hasImage]);
 
   useEffect(() => {
     if (!hasImage || !canvasRef.current) {
       queueMicrotask(() => setCanvasSize({ width: 0, height: 0 }));
       return;
     }
-
     const canvas = canvasRef.current;
-    const updateCanvasSize = () => {
-      setCanvasSize({ width: canvas.width || 0, height: canvas.height || 0 });
-    };
-
+    const updateCanvasSize = () => setCanvasSize({ width: canvas.width || 0, height: canvas.height || 0 });
     updateCanvasSize();
-
     const resizeObserver = new ResizeObserver(updateCanvasSize);
     resizeObserver.observe(canvas);
-
     const mutationObserver = new MutationObserver(updateCanvasSize);
-    mutationObserver.observe(canvas, {
-      attributes: true,
-      attributeFilter: ['width', 'height'],
-    });
-
-    return () => {
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
-    };
+    mutationObserver.observe(canvas, { attributes: true, attributeFilter: ['width', 'height'] });
+    return () => { resizeObserver.disconnect(); mutationObserver.disconnect(); };
   }, [canvasRef, hasImage]);
 
   useEffect(() => {
-    if (autoFit) {
-      queueMicrotask(() => setPan({ x: 0, y: 0 }));
-    }
+    if (autoFit) queueMicrotask(() => setPan({ x: 0, y: 0 }));
   }, [autoFit, hasImage]);
 
   useEffect(() => {
-    if (!autoFit || !hasImage) return;
-    if (!canvasSize.width || !canvasSize.height || !viewportSize.width || !viewportSize.height) return;
-
-    const padding = 56;
-    const availableWidth = Math.max(1, viewportSize.width - padding);
-    const availableHeight = Math.max(1, viewportSize.height - padding);
-    const scaleX = availableWidth / canvasSize.width;
-    const scaleY = availableHeight / canvasSize.height;
-    const fitZoom = clampZoom(Math.min(scaleX, scaleY));
-
-    onZoomChange(fitZoom, { auto: true });
-  }, [autoFit, hasImage, viewportSize, canvasSize, onZoomChange]);
+    if (!autoFit || !hasImage || !canvasSize.width || !canvasSize.height || !viewportSize.width || !viewportSize.height) return;
+    const availableWidth = Math.max(1, viewportSize.width - 56);
+    const availableHeight = Math.max(1, viewportSize.height - 56);
+    const fitZoom = clampZoom(Math.min(availableWidth / canvasSize.width, availableHeight / canvasSize.height));
+    // Avoid repeatedly updating the parent when already fitted.
+    if (Math.abs(fitZoom - zoom) > 0.001) onZoomChange(fitZoom, { auto: true });
+  }, [autoFit, hasImage, canvasSize, viewportSize, onZoomChange, zoom]);
 
   useEffect(() => {
-    if (!canvasSize.width || !canvasSize.height || !viewportSize.width || !viewportSize.height) {
-      return;
-    }
-
-    const scaledWidth = canvasSize.width * zoom;
-    const scaledHeight = canvasSize.height * zoom;
-    const limitX = Math.max(0, (scaledWidth - viewportSize.width) / 2);
-    const limitY = Math.max(0, (scaledHeight - viewportSize.height) / 2);
-
-    queueMicrotask(() => {
-      setPan((prev) => {
-        const next = {
-          x: Math.max(-limitX, Math.min(limitX, prev.x)),
-          y: Math.max(-limitY, Math.min(limitY, prev.y)),
-        };
-        if (next.x === prev.x && next.y === prev.y) return prev;
-        return next;
-      });
-    });
+    if (!canvasSize.width || !canvasSize.height || !viewportSize.width || !viewportSize.height) return;
+    const limitX = Math.max(0, (canvasSize.width * zoom - viewportSize.width) / 2);
+    const limitY = Math.max(0, (canvasSize.height * zoom - viewportSize.height) / 2);
+    queueMicrotask(() => setPan((prev) => {
+      const next = { x: Math.max(-limitX, Math.min(limitX, prev.x)), y: Math.max(-limitY, Math.min(limitY, prev.y)) };
+      return next.x === prev.x && next.y === prev.y ? prev : next;
+    }));
   }, [canvasSize, viewportSize, zoom]);
 
   const handlePointerDown = (event) => {
     if (!hasImage) return;
-    dragRef.current = {
-      active: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: pan.x,
-      originY: pan.y,
-    };
+    dragRef.current = { active: true, startX: event.clientX, startY: event.clientY, originX: pan.x, originY: pan.y };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
-
   const handlePointerMove = (event) => {
     if (!dragRef.current.active) return;
-    const dx = event.clientX - dragRef.current.startX;
-    const dy = event.clientY - dragRef.current.startY;
-    setPan({ x: dragRef.current.originX + dx, y: dragRef.current.originY + dy });
+    setPan({ x: dragRef.current.originX + event.clientX - dragRef.current.startX, y: dragRef.current.originY + event.clientY - dragRef.current.startY });
   };
-
   const handlePointerUp = (event) => {
     if (!dragRef.current.active) return;
     dragRef.current.active = false;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   return (
-    <div className="flex-1 relative overflow-hidden min-h-0">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.12),_transparent_60%)]"></div>
-
-      {hasImage && imageInfo && (
-        <div className="absolute top-4 left-4 z-20 flex items-center gap-2 rounded-full border border-slate-200/60 bg-white/85 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/70 dark:text-slate-300">
-          <span>
-            {imageInfo.width} × {imageInfo.height}px
-          </span>
-          {supportsHdr && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/60 dark:text-amber-200">
-              HDR
-            </span>
-          )}
+    <main className="lb-workspace" aria-label="照片预览">
+      <div className="lb-workspace-heading"><span><Icon name="image" size={15} />{hasImage ? '照片预览' : '你的创作空间'}</span><small>{hasImage && imageInfo ? `${imageInfo.width} × ${imageInfo.height}px` : 'READY WHEN YOU ARE'}{supportsHdr && ' · HDR'}</small></div>
+      {hasImage ? (
+        <div className="lb-viewport" ref={viewportRef}>
+          <div className="lb-pan-area" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel}>
+            <div className="lb-canvas-position" style={{ transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center' }}>
+              <canvas ref={canvasRef} className="lb-photo-canvas" />
+            </div>
+          </div>
+          <span className="lb-viewport-hint">滚轮缩放 · 拖动查看</span>
+        </div>
+      ) : (
+        <div className="lb-empty-state">
+          <span className="lb-empty-kicker">A LITTLE FRAME. A BIG DIFFERENCE.</span>
+          <StudioIllustration />
+          <h1>给照片，恰好的留白。</h1>
+          <p>拖入照片，或从左侧导入<br />选择喜欢的边框，让故事留在画面里。</p>
+          <div className="lb-empty-tags"><span><Icon name="lock" size={12} />本地处理</span><span><Icon name="stack" size={12} />批量导出</span><span><Icon name="aperture" size={12} />EXIF 识别</span></div>
         </div>
       )}
-
-      <div className="relative z-10 flex h-full w-full flex-col min-h-0">
-        {hasImage ? (
-          <div className="flex-1 px-6 py-8 min-h-0">
-            <div className="h-full w-full">
-              <div
-                ref={viewportRef}
-                className="h-full w-full rounded-2xl border border-slate-300/80 bg-slate-100/95 p-4 shadow-2xl shadow-slate-900/10 backdrop-blur dark:border-slate-700/80 dark:bg-slate-950/85"
-              >
-                <div
-                  className="relative h-full w-full overflow-hidden"
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
-                  onPointerLeave={handlePointerUp}
-                  onWheel={handleWheel}
-                  style={{ cursor: 'grab', touchAction: 'none' }}
-                >
-                  <div className="preview-stage pointer-events-none absolute inset-0 rounded-xl border border-slate-300/70 dark:border-slate-700/80"></div>
-                  <div
-                    className="absolute left-1/2 top-1/2 transform-gpu transition-transform duration-300"
-                    style={{
-                      transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                      transformOrigin: 'center',
-                    }}
-                  >
-                    <canvas ref={canvasRef} className="block" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-1 items-center justify-center px-6">
-            <div className="text-center text-slate-500 dark:text-slate-400 animate-float-in">
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/80 shadow-md shadow-slate-200/80 backdrop-blur dark:bg-slate-900/80 dark:shadow-none">
-                <FileImage size={36} />
-              </div>
-              <p className="text-lg font-semibold">拖入或上传照片开始预览</p>
-              <p className="mt-1 text-sm text-slate-400">所有处理均在本地完成</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </main>
   );
 }
