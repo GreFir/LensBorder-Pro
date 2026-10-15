@@ -704,11 +704,6 @@ export default function App() {
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           <TemplatePanel
-            onGpxUpload={importGpx}
-            gpxName={gpxName}
-            gpxStatus={gpxStatus}
-            gpxOffset={gpxOffset}
-            onGpxOffsetChange={changeGpxOffset}
             config={config}
             exifStatus={exifStatus}
             isProcessing={isProcessing}
@@ -738,6 +733,11 @@ export default function App() {
           />
 
             <SettingsPanel
+              onGpxUpload={importGpx}
+              gpxName={gpxName}
+              gpxStatus={gpxStatus}
+              gpxOffset={gpxOffset}
+              onGpxOffsetChange={changeGpxOffset}
               isOpen={settingsOpen}
               onToggle={() => setSettingsOpen((prev) => !prev)}
               config={config}
