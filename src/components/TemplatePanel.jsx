@@ -143,6 +143,11 @@ export default function TemplatePanel({
   exifStatus,
   isProcessing,
   onUpload,
+  onGpxUpload,
+  gpxName,
+  gpxStatus,
+  gpxOffset,
+  onGpxOffsetChange,
   onTemplateChange,
   zoom,
   onZoomChange,
@@ -211,6 +216,21 @@ export default function TemplatePanel({
           </button>
         </motion.div>
 
+      <div className="border-b border-slate-200/70 px-3 py-3 dark:border-slate-800">
+        <label className="block cursor-pointer rounded-lg border border-dashed border-slate-300 p-2 text-center text-xs dark:border-slate-700">
+          导入 GPX 轨迹
+          <input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxUpload} className="hidden" />
+        </label>
+        {gpxName && <p className="mt-1 truncate text-xs" title={gpxName}>{gpxName}</p>}
+        {gpxStatus && <p role="status" className="mt-1 text-xs text-slate-500">{gpxStatus}</p>}
+        <label className="mt-2 block text-xs text-slate-500">
+          相机时区 (UTC 偏移小时)
+          <input type="number" min="-12" max="14" step="0.25" value={gpxOffset / 60}
+            onChange={(event) => onGpxOffsetChange(Number(event.target.value) * 60)}
+            className="mt-1 w-full rounded border border-slate-300 bg-transparent p-1 dark:border-slate-700" />
+        </label>
+      </div>
+
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -253,6 +273,21 @@ export default function TemplatePanel({
       transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
       className="flex h-screen flex-col overflow-hidden border-r border-slate-200/70 bg-white/80 backdrop-blur-xl shadow-[0_20px_60px_-40px_rgba(15,23,42,0.5)] dark:border-slate-800 dark:bg-slate-950/70"
     >
+      <div className="border-b border-slate-200/70 px-3 py-3 dark:border-slate-800">
+        <label className="block cursor-pointer rounded-lg border border-dashed border-slate-300 p-2 text-center text-xs dark:border-slate-700">
+          导入 GPX 轨迹
+          <input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxUpload} className="hidden" />
+        </label>
+        {gpxName && <p className="mt-1 truncate text-xs" title={gpxName}>{gpxName}</p>}
+        {gpxStatus && <p role="status" className="mt-1 text-xs text-slate-500">{gpxStatus}</p>}
+        <label className="mt-2 block text-xs text-slate-500">
+          相机时区 (UTC 偏移小时)
+          <input type="number" min="-12" max="14" step="0.25" value={gpxOffset / 60}
+            onChange={(event) => onGpxOffsetChange(Number(event.target.value) * 60)}
+            className="mt-1 w-full rounded border border-slate-300 bg-transparent p-1 dark:border-slate-700" />
+        </label>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
