@@ -10,6 +10,7 @@ export const createEmptyMeta = () => ({
   iso: '',
   dateTime: '',
   artist: '',
+  captureTime: '',
 });
 
 const cleanText = (value) => {
@@ -114,6 +115,7 @@ export const extractExif = async (file) => {
         readTag(tags, 'DateTime')
     );
 
+    const captureTime = readTag(tags, 'DateTimeOriginal') || readTag(tags, 'CreateDate') || readTag(tags, 'DateTime');
     const artist = readTag(tags, 'Artist') || readTag(tags, 'Copyright');
 
     return {
@@ -126,6 +128,7 @@ export const extractExif = async (file) => {
       iso,
       dateTime,
       artist,
+      captureTime,
     };
   } catch (error) {
     console.error('EXIF Error:', error);
