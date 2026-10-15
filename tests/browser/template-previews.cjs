@@ -18,7 +18,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   await page.route('https://fonts.gstatic.com/**', (route) => route.abort());
   try {
     await page.goto(process.env.PREVIEW_URL || 'http://127.0.0.1:5173');
-    const cards = page.locator('.lb-template-card');
+    const library = page.locator('.lb-library');
+    const cards = library.locator('.lb-template-card');
+    await cards.first().waitFor();
     assert.equal(await cards.count(), 24);
     assert.equal(await page.locator('svg.lb-template-thumbnail').count(), 24);
     console.log('PASS: empty library keeps all 24 template schematics');
@@ -39,7 +41,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     ]);
     await page.waitForFunction(() => document.querySelectorAll('.lb-film-frame').length === 2);
     assert.equal(await page.locator('svg.lb-template-thumbnail').count(), 0);
-    const classic = page.getByRole('button', { name: 'Classic', exact: true });
+    const classic = library.getByRole('button', { name: 'Classic', exact: true });
     const pixels = (card) => card.locator('canvas').evaluate((canvas) => canvas.toDataURL());
     const waitCard = async (card) => {
       await card.scrollIntoViewIfNeeded();
@@ -60,13 +62,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     console.log('PASS: EXIF/manual metadata changes redraw template previews');
 
     const source = await page.locator('.lb-film-frame[data-active="true"] img').getAttribute('src');
-    await page.getByRole('button', { name: 'Cinema', exact: true }).click();
+    await library.getByRole('button', { name: 'Cinema', exact: true }).click();
     assert.equal(await page.locator('.lb-film-frame[data-active="true"] img').getAttribute('src'), source);
     await classic.click(); await waitCard(classic);
     const beforeSwitch = await pixels(classic);
     await page.getByRole('button', { name: '选择照片 portrait.png', exact: true }).click();
     await waitCard(classic); assert.notEqual(await pixels(classic), beforeSwitch);
-    // Exercise cancellation while switching faster than the thumbnail queue.
     for (const name of ['landscape.png', 'portrait.png', 'landscape.png']) {
       await page.getByRole('button', { name: `选择照片 ${name}`, exact: true }).click();
     }
@@ -74,8 +75,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.locator('.lb-film-frame[data-active="true"] img').getAttribute('alt'), 'landscape.png');
     console.log('PASS: photo selection and rapid switching do not show stale thumbnails');
 
-    // Verify the renderer's new limit preserves logical geometry and also bounds
-    // the temporary rotated canvas, without reducing normal preview/export size.
+    // Bounds apply to rotated intermediates too, but not normal preview/export.
     const geometry = await page.evaluate(async () => {
       const { renderFrame } = await import('/src/utils/canvasUtils.js');
       const photo = document.createElement('canvas'); photo.width = 4000; photo.height = 3000;
