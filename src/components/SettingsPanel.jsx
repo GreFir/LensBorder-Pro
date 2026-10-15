@@ -1,4 +1,4 @@
-import { Info, SlidersHorizontal, X } from 'lucide-react';
+import { Info, SlidersHorizontal, X, MapPin, ChevronDown, Upload } from 'lucide-react';
 import { PALETTES } from '../constants/palettes';
 import { METADATA_FIELDS, METADATA_GROUPS } from '../constants/metadataFields';
 
@@ -67,6 +67,11 @@ export default function SettingsPanel({
   updateVisibility,
   updateMeta,
   onResetAll,
+  onGpxUpload,
+  gpxName,
+  gpxStatus,
+  gpxOffset,
+  onGpxOffsetChange,
   onAddTextOverlay,
   onAddStickerOverlay,
   onUpdateOverlays,
@@ -132,6 +137,34 @@ export default function SettingsPanel({
           重置所有参数
         </button>
 
+
+        <details className="group rounded-xl border border-slate-200/70 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/40">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-xs font-medium text-slate-600 dark:text-slate-300 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2"><MapPin size={15} />轨迹定位（可选）</span>
+            <span className="flex items-center gap-2">
+              {gpxName && <span className="text-[10px] text-emerald-600 dark:text-emerald-400">已导入</span>}
+              <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+            </span>
+          </summary>
+          <div className="space-y-3 border-t border-slate-200/70 px-3 pb-3 pt-3 dark:border-slate-800">
+            <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">导入 GPX 轨迹后，根据照片拍摄时间匹配 GPS 坐标。</p>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+              <Upload size={14} />{gpxName ? '更换 GPX 文件' : '选择 GPX 文件'}
+              <input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxUpload} className="hidden" />
+            </label>
+            {gpxName && <p className="truncate text-[11px] text-slate-500" title={gpxName}>{gpxName}</p>}
+            {gpxStatus && <p role="status" className="text-[11px] text-slate-500 dark:text-slate-400">{gpxStatus}</p>}
+            <label className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span>相机时区</span>
+              <select value={gpxOffset} onChange={(event) => onGpxOffsetChange(Number(event.target.value))}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                {Array.from({ length: 27 }, (_, index) => index - 12).map((hour) => (
+                  <option key={hour} value={hour * 60}>{`UTC${hour >= 0 ? '+' : ''}${hour}`}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </details>
 
         {showPostcardStampControls && (
           <Section title="明信片邮票" subtitle="上传图片替换右上角圆形印章">
