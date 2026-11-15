@@ -147,7 +147,7 @@ with sync_playwright() as p:
         ui_checks.append('real app rejects fabricated HDR for SDR photo')
         control.select_option('auto')
         downloads = []
-        page.on('download', downloads.append)
+        page.on('download', lambda download: downloads.append(download))
         page.get_by_role('button', name='导出全部照片').click()
         page.wait_for_function("document.querySelector('.lb-export-feedback').textContent.includes('已生成并请求下载 2 / 2')")
         assert len(downloads) == 2
