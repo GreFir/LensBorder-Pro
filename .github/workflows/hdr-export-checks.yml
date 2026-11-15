@@ -35,7 +35,7 @@ jobs:
       - name: HDR policy, metadata and rotation-contract tests
         run: node --test tests/hdr.test.mjs
       - name: Lint HDR implementation
-        run: npx eslint src/hooks/usePhotoExport.js src/utils/hdr src/components/HdrExportOptions.jsx
+        run: npx eslint src/hooks/usePhotoExport.js src/hooks/useHdrPreview.js src/utils/hdr src/components/HdrExportOptions.jsx src/components/PreviewArea.jsx
       - name: Production web build
         run: npm run build
       - uses: actions/setup-python@v5

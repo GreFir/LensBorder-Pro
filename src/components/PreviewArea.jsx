@@ -3,7 +3,7 @@ import { Icon, StudioIllustration } from '../themes/Icons';
 
 const clampZoom = (value) => Math.min(3.5, Math.max(0.2, value));
 
-export default function PreviewArea({ canvasRef, hasImage, zoom, onZoomChange, autoFit, imageInfo, supportsHdr }) {
+export default function PreviewArea({ canvasRef, hasImage, zoom, onZoomChange, autoFit, imageInfo, hdrPreview = {} }) {
   const viewportRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -85,12 +85,13 @@ export default function PreviewArea({ canvasRef, hasImage, zoom, onZoomChange, a
 
   return (
     <main className="lb-workspace" aria-label="照片预览">
-      <div className="lb-workspace-heading"><span><Icon name="image" size={15} />{hasImage ? '照片预览' : '你的创作空间'}</span><small>{hasImage && imageInfo ? `${imageInfo.width} × ${imageInfo.height}px` : 'READY WHEN YOU ARE'}{supportsHdr && ' · HDR'}</small></div>
+      <div className="lb-workspace-heading"><span><Icon name="image" size={15} />{hasImage ? '照片预览' : '你的创作空间'}</span><small title={hdrPreview.error} aria-live="polite">{hasImage && imageInfo ? `${imageInfo.width} × ${imageInfo.height}px` : 'READY WHEN YOU ARE'}{hdrPreview.label && ` · ${hdrPreview.label}`}</small></div>
       {hasImage ? (
         <div className="lb-viewport" ref={viewportRef}>
           <div className="lb-pan-area" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onWheel={handleWheel}>
             <div className="lb-canvas-position" style={{ transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center' }}>
-              <canvas ref={canvasRef} className="lb-photo-canvas" />
+              <canvas ref={canvasRef} className="lb-photo-canvas" style={{ opacity: hdrPreview.url ? 0 : 1 }} />
+              {hdrPreview.url && <img className="lb-hdr-photo-preview" src={hdrPreview.url} alt="HDR 照片预览" draggable={false} />}
             </div>
           </div>
           <span className="lb-viewport-hint">滚轮缩放 · 拖动查看</span>

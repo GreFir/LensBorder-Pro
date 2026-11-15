@@ -1,5 +1,5 @@
 import { extractSdrJpeg, inspectJpeg, normalizeOrientation, packGainMap, stripGainMapProfile } from './jpeg.js';
-import { encodeGain, linearToSrgb, logGain, recoverLinear, srgbToLinear } from './math.js';
+import { convertLinearRgb, encodeGain, linearToSrgb, logGain, recoverLinear, srgbToLinear } from './math.js';
 
 const TILE_ROWS = 128;
 const MAX_PIXELS = 48_000_000;
@@ -52,7 +52,8 @@ export function orientCanvas(source, orientation, colorSpace) {
 }
 
 /** Reconstruct full HDR explicitly, independent of the screen's HDR headroom. */
-export async function reconstructSource(source) {
+export async function reconstructSource(source, { maxDimension, signal } = {}) {
+  signal?.throwIfAborted();
   const bytes = new Uint8Array(await source.file.arrayBuffer());
   const info = inspectJpeg(bytes);
   if (info.status !== 'hdr') throw new Error('原始 HDR 增益图不可用');
@@ -61,32 +62,42 @@ export async function reconstructSource(source) {
   const baseBytes = normalizeOrientation(extractSdrJpeg(bytes, info.primary)).bytes;
   const gainBytes = stripGainMapProfile(bytes.subarray(info.gainMap.start, info.gainMap.end));
   const [base, gain] = await Promise.all([loadBitmap(new Blob([baseBytes], { type: 'image/jpeg' })), loadBitmap(new Blob([gainBytes], { type: 'image/jpeg' }))]);
-  const width = base.width; const height = base.height;
+  const scale = Number.isFinite(maxDimension) && maxDimension > 0 ? Math.min(1, maxDimension / Math.max(base.width, base.height)) : 1;
+  const width = Math.max(1, Math.round(base.width * scale)); const height = Math.max(1, Math.round(base.height * scale));
   const space = source.colorSpace;
   const baseCanvas = makeCanvas(width, height, space);
   const gainCanvas = makeCanvas(width, height);
   let out;
   try {
-    out = makeCanvas(width, height, space, true);
+    // Chromium can clamp >1 values when drawing float16 Display P3 canvases.
+    // Composite in extended sRGB, converting primaries ourselves without clipping.
+    out = makeCanvas(width, height, 'srgb', true);
     const bctx = baseCanvas.getContext('2d'); const gctx = gainCanvas.getContext('2d'); const octx = out.getContext('2d');
-    bctx.drawImage(base, 0, 0);
+    bctx.drawImage(base, 0, 0, width, height);
     gctx.drawImage(gain, 0, 0, width, height);
+    const rgb = new Float64Array(3);
     for (let y = 0; y < height; y += TILE_ROWS) {
+      signal?.throwIfAborted();
       const rows = Math.min(TILE_ROWS, height - y);
       const b = bctx.getImageData(0, y, width, rows, { colorSpace: space }).data;
       const g = gctx.getImageData(0, y, width, rows).data;
       const pixels = new globalThis.Float16Array(b.length);
       for (let i = 0; i < b.length; i += 4) {
         for (let c = 0; c < 3; c++) {
-          pixels[i + c] = linearToSrgb(recoverLinear(srgbToLinear(b[i + c] / 255), g[i + c] / 255, c, source.metadata));
+          rgb[c] = recoverLinear(srgbToLinear(b[i + c] / 255), g[i + c] / 255, c, source.metadata);
+        }
+        convertLinearRgb(rgb, space, 'srgb');
+        for (let c = 0; c < 3; c++) {
+          pixels[i + c] = linearToSrgb(rgb[c]);
           if (!Number.isFinite(pixels[i + c])) throw new Error('HDR 像素超出浮点范围');
         }
         pixels[i + 3] = 1;
       }
-      octx.putImageData(new ImageData(pixels, width, rows, { colorSpace: space, pixelFormat: 'rgba-float16' }), 0, y);
+      octx.putImageData(new ImageData(pixels, width, rows, { colorSpace: 'srgb', pixelFormat: 'rgba-float16' }), 0, y);
       await yieldToUI();
     }
-    return orientCanvas(out, source.orientation, space);
+    signal?.throwIfAborted();
+    return orientCanvas(out, source.orientation, 'srgb');
   } catch (error) { releaseCanvas(out); throw error; }
   finally { releaseCanvas(baseCanvas); releaseCanvas(gainCanvas); base.src = ''; gain.src = ''; }
 }
@@ -96,7 +107,7 @@ export async function reconstructSource(source) {
 export const RIGHT_TEXT_TEMPLATES = new Set(['classic', 'postcard', 'postcard-note', 'gallery', 'cinema', 'noir', 'airy', 'mono', 'caption', 'borderline', 'editorial', 'museum', 'floating', 'atelier', 'monolith', 'folio', 'lagoon']);
 
 /** Reuses every existing template, including crop, blur, masks, text and overlays. */
-export function renderPhotoFrame(renderFrame, image, config, meta, space, hdr) {
+export function renderPhotoFrame(renderFrame, image, config, meta, space, hdr, options = {}) {
   let rotated;
   let out;
   let drawImage = image;
@@ -118,32 +129,44 @@ export function renderPhotoFrame(renderFrame, image, config, meta, space, hdr) {
       const value = Reflect.get(target, key, target);
       return typeof value === 'function' ? value.bind(target) : value;
     }, set(target, key, value) { return Reflect.set(target, key, value, target); } });
-    renderFrame(measure, drawImage, drawConfig, meta, { scale: 1, preview: false });
+    renderFrame(measure, drawImage, drawConfig, meta, { scale: 1, preview: false, ...options });
     out = makeCanvas(dimensions.width, dimensions.height, space, hdr);
-    renderFrame(out.getContext('2d'), drawImage, drawConfig, meta, { scale: 1, preview: false });
+    renderFrame(out.getContext('2d'), drawImage, drawConfig, meta, { scale: 1, preview: false, ...options });
     return out;
   } catch (error) { releaseCanvas(out); throw error; }
   finally { releaseCanvas(probe); releaseCanvas(rotated); }
 }
 
 /** Encode the finished image, not an intermediate TIFF/EXR. */
-export async function encodeHdrJpeg(renderFrame, image, config, meta, source, quality) {
-  let sdrFrame; let hdrSource; let hdrFrame; let reference; let gainCanvas;
+export async function encodeHdrJpeg(renderFrame, image, config, meta, source, quality, options = {}) {
+  let sdrFrame; let hdrSource; let hdrFrame; let reference; let gainCanvas; let smallSdr;
   const space = source.colorSpace;
+  const { signal, maxDimension } = options;
   try {
+    signal?.throwIfAborted();
     // Check float storage with actual >1 values; successful getContext alone is insufficient.
-    const test = makeCanvas(1, 1, space, true);
+    const test = makeCanvas(1, 1, 'srgb', true);
+    const copied = makeCanvas(1, 1, 'srgb', true);
     try {
       const ctx = test.getContext('2d');
-      ctx.putImageData(new ImageData(new globalThis.Float16Array([2, 2, 2, 1]), 1, 1, { colorSpace: space, pixelFormat: 'rgba-float16' }), 0, 0);
-      if (ctx.getImageData(0, 0, 1, 1, { colorSpace: space, pixelFormat: 'rgba-float16' }).data[0] < 1.9) throw new Error('当前运行环境会裁掉 HDR 高光，请选择 SDR');
-    } finally { releaseCanvas(test); }
+      ctx.putImageData(new ImageData(new globalThis.Float16Array([2, -.1, .5, 1]), 1, 1, { colorSpace: 'srgb', pixelFormat: 'rgba-float16' }), 0, 0);
+      copied.getContext('2d').drawImage(test, 0, 0);
+      const pixels = copied.getContext('2d').getImageData(0, 0, 1, 1, { colorSpace: 'srgb', pixelFormat: 'rgba-float16' }).data;
+      if (pixels[0] < 1.9 || pixels[1] > -.09) throw new Error('当前运行环境会裁掉 HDR 高光或广色域，请选择 SDR');
+    } finally { releaseCanvas(test); releaseCanvas(copied); }
     if (document.fonts?.ready) await document.fonts.ready;
-    hdrSource = await reconstructSource(source);
+    hdrSource = await reconstructSource(source, options);
+    let sdrImage = image;
+    if (hdrSource.width !== image.width || hdrSource.height !== image.height) {
+      smallSdr = makeCanvas(hdrSource.width, hdrSource.height, space);
+      smallSdr.getContext('2d').drawImage(image, 0, 0, smallSdr.width, smallSdr.height);
+      sdrImage = smallSdr;
+    }
     // No await between the two renders: async overlay-cache events cannot make them disagree.
-    hdrFrame = renderPhotoFrame(renderFrame, hdrSource, config, meta, space, true);
+    hdrFrame = renderPhotoFrame(renderFrame, hdrSource, config, meta, 'srgb', true, { maxDimension });
     releaseCanvas(hdrSource); hdrSource = null;
-    sdrFrame = renderPhotoFrame(renderFrame, image, config, meta, space, false);
+    sdrFrame = renderPhotoFrame(renderFrame, sdrImage, config, meta, space, false, { maxDimension });
+    releaseCanvas(smallSdr); smallSdr = null;
     const width = sdrFrame.width; const height = sdrFrame.height;
     if (hdrFrame.width !== width || hdrFrame.height !== height) throw new Error('HDR / SDR 图层尺寸不一致');
     const sdr = await jpegBlob(sdrFrame, quality);
@@ -156,34 +179,46 @@ export async function encodeHdrJpeg(renderFrame, image, config, meta, source, qu
     let min = 0; let max = 0.0001;
     const readTile = (y, rows) => ({
       s: sctx.getImageData(0, y, width, rows, { colorSpace: space }).data,
-      h: hctx.getImageData(0, y, width, rows, { colorSpace: space, pixelFormat: 'rgba-float16' }).data,
+      h: hctx.getImageData(0, y, width, rows, { colorSpace: 'srgb', pixelFormat: 'rgba-float16' }).data,
     });
+    const rgb = new Float64Array(3);
+    const outputRgb = (h, i) => {
+      for (let c = 0; c < 3; c++) rgb[c] = srgbToLinear(h[i + c]);
+      return convertLinearRgb(rgb, 'srgb', space);
+    };
     for (let y = 0; y < height; y += TILE_ROWS) {
+      signal?.throwIfAborted();
       const { s, h } = readTile(y, Math.min(TILE_ROWS, height - y));
-      for (let i = 0; i < s.length; i += 4) for (let c = 0; c < 3; c++) {
-        const gain = logGain(srgbToLinear(s[i + c] / 255), srgbToLinear(h[i + c]));
-        if (!Number.isFinite(gain) || Math.abs(gain) > 16) throw new Error('合成后的 HDR 亮度超出支持范围');
-        min = Math.min(min, gain); max = Math.max(max, gain);
+      for (let i = 0; i < s.length; i += 4) {
+        outputRgb(h, i);
+        for (let c = 0; c < 3; c++) {
+          const gain = logGain(srgbToLinear(s[i + c] / 255), rgb[c]);
+          if (!Number.isFinite(gain) || Math.abs(gain) > 16) throw new Error('合成后的 HDR 亮度超出支持范围');
+          min = Math.min(min, gain); max = Math.max(max, gain);
+        }
       }
       await yieldToUI();
     }
     gainCanvas = makeCanvas(width, height);
     const gctx = gainCanvas.getContext('2d');
     for (let y = 0; y < height; y += TILE_ROWS) {
+      signal?.throwIfAborted();
       const rows = Math.min(TILE_ROWS, height - y);
       const { s, h } = readTile(y, rows);
       const pixels = new Uint8ClampedArray(s.length);
       for (let i = 0; i < s.length; i += 4) {
-        for (let c = 0; c < 3; c++) pixels[i + c] = encodeGain(logGain(srgbToLinear(s[i + c] / 255), srgbToLinear(h[i + c])), min, max);
+        outputRgb(h, i);
+        for (let c = 0; c < 3; c++) pixels[i + c] = encodeGain(logGain(srgbToLinear(s[i + c] / 255), rgb[c]), min, max);
         pixels[i + 3] = 255;
       }
       gctx.putImageData(new ImageData(pixels, width, rows), 0, y);
       await yieldToUI();
     }
     const gain = await jpegBlob(gainCanvas, 1);
-    const output = packGainMap(new Uint8Array(await sdr.arrayBuffer()), new Uint8Array(await gain.arrayBuffer()), { min, max, capacity: source.metadata.capacityMax });
+    signal?.throwIfAborted();
+    const output = packGainMap(new Uint8Array(await sdr.arrayBuffer()), new Uint8Array(await gain.arrayBuffer()), { min, max, capacityMin: source.metadata.capacityMin, capacity: source.metadata.capacityMax });
     return new Blob([output], { type: 'image/jpeg' });
   } finally {
-    for (const canvas of [sdrFrame, hdrSource, hdrFrame, reference, gainCanvas]) releaseCanvas(canvas);
+    for (const canvas of [sdrFrame, hdrSource, hdrFrame, reference, gainCanvas, smallSdr]) releaseCanvas(canvas);
   }
 }

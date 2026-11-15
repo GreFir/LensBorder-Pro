@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { isJpeg, readJpeg, inspectJpeg, packGainMap, extractSdrJpeg, normalizeOrientation } from '../src/utils/hdr/jpeg.js';
-import { srgbToLinear, linearToSrgb, logGain, encodeGain, recoverLinear, resolveExportMode, validateMetadata } from '../src/utils/hdr/math.js';
+import { convertLinearRgb, srgbToLinear, linearToSrgb, logGain, encodeGain, recoverLinear, resolveExportMode, validateMetadata } from '../src/utils/hdr/math.js';
 import { assertSize, RIGHT_TEXT_TEMPLATES } from '../src/utils/hdr/canvas.js';
 
 const jpg = Uint8Array.of(0xff,0xd8, 0xff,0xe0,0,6,0,0xff,0xd9,0, 0xff,0xc0,0,11,8,0,2,0,3,1,1,0x11,0,
@@ -36,7 +36,23 @@ test('invalid output metadata cannot be packaged', () => {
   for(const range of [{min:0,max:0,capacity:2},{min:1,max:2,capacity:2},{min:0,max:Infinity,capacity:2},{min:0,max:2,capacity:0}]) assert.throws(()=>packGainMap(jpg,jpg,range));
 });
 test('sRGB extended transfer round-trips above SDR white', () => {
-  for(const value of [0,.001,.01,.18,1,4,16,64]) assert.ok(Math.abs(srgbToLinear(linearToSrgb(value))-value)<1e-10);
+  for(const value of [-4,-1,-.18,-.001,0,.001,.01,.18,1,4,16,64]) assert.ok(Math.abs(srgbToLinear(linearToSrgb(value))-value)<1e-10);
+  assert.equal(linearToSrgb(-.18), -linearToSrgb(.18));
+});
+
+test('wide-gamut working conversion preserves highlights and out-of-sRGB components', () => {
+  for (const original of [[4,4,4], [5,.1,.01], [.02,3,.1], [0,0,0]]) {
+    const rgb = convertLinearRgb([...original], 'display-p3', 'srgb');
+    if (original[0] === 5) { assert.ok(rgb[0] > 5); assert.ok(rgb[1] < 0); }
+    convertLinearRgb(rgb, 'srgb', 'display-p3');
+    rgb.forEach((v, i) => assert.ok(Math.abs(v - original[i]) < 1e-10));
+  }
+});
+
+test('output preserves the source display adaptation threshold', () => {
+  const packed=packGainMap(jpg,jpg,{min:0,max:2,capacityMin:1,capacity:3});
+  assert.match(inspectJpeg(packed).xml,/HDRCapacityMin="1"/);
+  for (const capacityMin of [-1,3,NaN]) assert.throws(()=>packGainMap(jpg,jpg,{min:0,max:2,capacityMin,capacity:3}));
 });
 test('gain reconstruction preserves HDR instead of clipping it', () => {
   assert.equal(recoverLinear(1,1,0,metadata),4.046875);

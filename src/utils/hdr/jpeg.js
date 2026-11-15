@@ -144,13 +144,13 @@ function mpf(primarySize, secondarySize, secondaryOffset) {
 }
 
 /** RGB gain coefficients share a single range/gamma; their pixel values remain RGB. */
-export function packGainMap(sdr, gainMap, { min, max, capacity }) {
-  if (![min, max, capacity].every(Number.isFinite) || min > 0 || max <= min || capacity <= 0 || capacity > 16) {
+export function packGainMap(sdr, gainMap, { min, max, capacity, capacityMin = 0 }) {
+  if (![min, max, capacity, capacityMin].every(Number.isFinite) || min > 0 || max <= min || capacityMin < 0 || capacity <= capacityMin || capacity > 16) {
     throw new Error('无效增益图范围');
   }
   const base = extractSdrJpeg(sdr);
   const gm = extractSdrJpeg(gainMap);
-  const secondaryXmp = xmpApp(xmpWrap(`<rdf:Description xmlns:hdrgm="${HDR_NS}" hdrgm:Version="1.0" hdrgm:BaseRenditionIsHDR="False" hdrgm:GainMapMin="${min}" hdrgm:GainMapMax="${max}" hdrgm:Gamma="1" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.015625" hdrgm:HDRCapacityMin="0" hdrgm:HDRCapacityMax="${capacity}"/>`));
+  const secondaryXmp = xmpApp(xmpWrap(`<rdf:Description xmlns:hdrgm="${HDR_NS}" hdrgm:Version="1.0" hdrgm:BaseRenditionIsHDR="False" hdrgm:GainMapMin="${min}" hdrgm:GainMapMax="${max}" hdrgm:Gamma="1" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.015625" hdrgm:HDRCapacityMin="${capacityMin}" hdrgm:HDRCapacityMax="${capacity}"/>`));
   const secondary = concat(gm.subarray(0, 2), secondaryXmp, gm.subarray(2));
   const primaryXmp = xmpApp(xmpWrap(`<rdf:Description xmlns:hdrgm="${HDR_NS}" hdrgm:Version="1.0" xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/"><Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="${secondary.length}"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description>`));
   const mpfLength = 90;

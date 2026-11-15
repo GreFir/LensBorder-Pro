@@ -106,7 +106,8 @@ jobs:
           - Open Preview and Export / Dynamic range. Auto is the default.
           - Test a supported gain-map HDR JPEG and a normal SDR photo, individually
             and together in a batch. Output is finished JPEG, not 16-bit intermediates.
-          - Preview is SDR; inspect exported HDR on a compatible viewer and display.
+          - HDR-capable displays use native gain-map JPEG previews; otherwise the
+            preview is explicitly labeled SDR. Also inspect exports on your device.
           - Unsupported HDR containers or an older WebView2 should report an error
             rather than silently claiming an SDR export is HDR.
           - See HDR-EXPORT.md for the exact supported input formats and limitations.

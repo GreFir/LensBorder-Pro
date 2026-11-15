@@ -11,6 +11,7 @@ import { DEFAULT_VISIBILITY } from './constants/metadataFields';
 import { getPaletteById } from './constants/palettes';
 import { extractImagePalette } from './utils/colorUtils';
 import usePhotoExport from './hooks/usePhotoExport';
+import useHdrPreview from './hooks/useHdrPreview';
 import { preparePhotoSource, rememberPhotoSource } from './utils/hdr/source.js';
 
 let heic2anyLoader = null;
@@ -146,6 +147,7 @@ export default function App() {
     entry.id === currentImageId ? { ...entry, image, imageInfo, meta, config } : entry
   ), [savedImages, currentImageId, image, imageInfo, meta, config]);
   const photoExport = usePhotoExport({ images, currentImageId, image, imageInfo, config, meta, quality: exportQuality });
+  const hdrPreview = useHdrPreview({ image, config, meta, mode: photoExport.mode });
 
   useEffect(() => {
     if (!image || !canvasRef.current) return;
@@ -591,7 +593,7 @@ export default function App() {
             onZoomChange={handleZoomChange}
             autoFit={autoFit}
             imageInfo={imageInfo}
-            supportsHdr={false}
+            hdrPreview={hdrPreview}
           />
 
             <SettingsPanel

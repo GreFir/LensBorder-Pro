@@ -1,11 +1,29 @@
 export const OFFSET = 1 / 64;
-export const srgbToLinear = (v) => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
-export const linearToSrgb = (v) => v <= .0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - .055;
+// Signed extended sRGB transfer functions also retain out-of-gamut P3 components.
+export const srgbToLinear = (v) => Math.abs(v) <= .04045 ? v / 12.92 : Math.sign(v) * ((Math.abs(v) + .055) / 1.055) ** 2.4;
+export const linearToSrgb = (v) => Math.abs(v) <= .0031308 ? v * 12.92 : Math.sign(v) * (1.055 * Math.abs(v) ** (1 / 2.4) - .055);
 export const recoverLinear = (sdr, gain, channel, metadata) => Math.max(0,
   (sdr + metadata.offsetSdr[channel]) * 2 ** (metadata.min[channel] +
     (metadata.max[channel] - metadata.min[channel]) * gain ** (1 / metadata.gamma[channel])) - metadata.offsetHdr[channel]);
 export const logGain = (sdr, hdr) => Math.log2((Math.max(0, hdr) + OFFSET) / (Math.max(0, sdr) + OFFSET));
 export const encodeGain = (gain, min, max) => Math.round(255 * Math.max(0, Math.min(1, (gain - min) / (max - min))));
+
+// D65 sRGB / Display P3 primary conversion, in linear light. Keep extended and
+// negative components: clamping here would destroy HDR or wide-gamut colors.
+export function convertLinearRgb(rgb, from, to) {
+  if (from === to) return rgb;
+  const [r, g, b] = rgb;
+  if (from === 'display-p3' && to === 'srgb') {
+    rgb[0] = 1.2249401762805598 * r - 0.22494017628055987 * g;
+    rgb[1] = -0.04205695470968818 * r + 1.0420569547096883 * g;
+    rgb[2] = -0.019637554590334432 * r - 0.07863604555063182 * g + 1.0982736001409663 * b;
+  } else if (from === 'srgb' && to === 'display-p3') {
+    rgb[0] = 0.8224619687143624 * r + 0.1775380312856376 * g;
+    rgb[1] = 0.03319419885096167 * r + 0.9668058011490384 * g;
+    rgb[2] = 0.017082630721120037 * r + 0.07239744066396346 * g + 0.9105199286149165 * b;
+  } else throw new Error('不支持的 HDR 工作色彩空间');
+  return rgb;
+}
 
 export function resolveExportMode(mode, source) {
   if (!['auto', 'sdr', 'hdr'].includes(mode)) throw new Error('无效导出模式');

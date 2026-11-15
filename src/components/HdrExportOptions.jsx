@@ -13,7 +13,7 @@ export default function HdrExportOptions({ mode, onChange, source, disabled }) {
         <option value="hdr">HDR JPEG（保留增益图）</option>
       </select>
       <p id="lb-hdr-help">{sourceLabel}</p>
-      <p>预览为 SDR；HDR 成品需兼容的查看器与屏幕。HDR 模式不会给普通照片虚构高光。</p>
+      <p>支持 HDR 的显示环境会自动启用 HDR 预览，其他环境显示 SDR；当前状态见预览区。HDR 模式不会给普通照片虚构高光。</p>
     </div>
   );
 }
