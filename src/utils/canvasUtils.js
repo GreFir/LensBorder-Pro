@@ -746,7 +746,7 @@ const drawLagoon = (ctx, layout, config, text) => {
 };
 
 const drawPaletteCard = (ctx, layout, config, text, image) => {
-  const { canvasWidth, canvasHeight, framePadding, baseFont, imageX, imageY, imageWidth, imageHeight } = layout;
+  const { framePadding, baseFont, imageX, imageY, imageWidth, imageHeight } = layout;
 
   // rely on base image draw; only add palette bar and text
   const barHeight = Math.max(baseFont * 4.2, 82);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import TemplatePanel from './components/TemplatePanel';
 import SettingsPanel from './components/SettingsPanel';
 import PreviewArea from './components/PreviewArea';
@@ -31,8 +31,19 @@ const getRender2DContext = (canvas) =>
 
 const getSystemDarkPreference = () =>
   typeof window !== 'undefined' &&
-  window.matchMedia &&
+  typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+const subscribeSystemTheme = (onChange) => {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mediaQuery.addEventListener) {
+    mediaQuery.addEventListener('change', onChange);
+    return () => mediaQuery.removeEventListener('change', onChange);
+  }
+  mediaQuery.addListener(onChange);
+  return () => mediaQuery.removeListener(onChange);
+};
 
 const getInitialThemeMode = () => {
   if (typeof window === 'undefined') return 'system';
@@ -109,7 +120,7 @@ export default function App() {
 
   const [image, setImage] = useState(null);
   const [imageInfo, setImageInfo] = useState(null);
-  const [images, setImages] = useState([]);
+  const [savedImages, setImages] = useState([]);
   const [currentImageId, setCurrentImageId] = useState(null);
   const [trayOpen, setTrayOpen] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -119,7 +130,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [templatePanelCollapsed, setTemplatePanelCollapsed] = useState(false);
   const [themeMode, setThemeMode] = useState(() => getInitialThemeMode());
-  const [isSystemDark, setIsSystemDark] = useState(() => getSystemDarkPreference());
+  const isSystemDark = useSyncExternalStore(subscribeSystemTheme, getSystemDarkPreference, () => false);
   const [exportQuality, setExportQuality] = useState(DEFAULT_EXPORT_QUALITY);
   const resolvedTheme = themeMode === 'system' ? (isSystemDark ? 'dark' : 'light') : themeMode;
 
@@ -130,24 +141,11 @@ export default function App() {
   const [gpxStatus, setGpxStatus] = useState('');
 
   const [config, setConfig] = useState(() => getDefaultConfig());
+  // Include current edits immediately; persist the outgoing entry when switching photos.
+  const images = useMemo(() => savedImages.map((entry) =>
+    entry.id === currentImageId ? { ...entry, image, imageInfo, meta, config } : entry
+  ), [savedImages, currentImageId, image, imageInfo, meta, config]);
   const photoExport = usePhotoExport({ images, currentImageId, image, imageInfo, config, meta, quality: exportQuality });
-
-  useEffect(() => {
-    if (!currentImageId) return;
-    setImages((prev) =>
-      prev.map((entry) =>
-        entry.id === currentImageId
-          ? {
-              ...entry,
-              image,
-              imageInfo,
-              meta,
-              config,
-            }
-          : entry
-      )
-    );
-  }, [image, imageInfo, meta, config, currentImageId]);
 
   useEffect(() => {
     if (!image || !canvasRef.current) return;
@@ -171,27 +169,6 @@ export default function App() {
     };
     window.addEventListener('lensborder-overlay-ready', handleOverlayReady);
     return () => window.removeEventListener('lensborder-overlay-ready', handleOverlayReady);
-  }, []);
-
-  useEffect(() => {
-    if (!image) return;
-    setAutoFit(true);
-  }, [image, config.template, config.framePadding, config.bottomPadding]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (event) => {
-      setIsSystemDark(event.matches);
-    };
-
-    setIsSystemDark(mediaQuery.matches);
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-    mediaQuery.addListener(handleChange);
-    return () => mediaQuery.removeListener(handleChange);
   }, []);
 
   useEffect(() => {
@@ -283,7 +260,7 @@ export default function App() {
       try {
         // 优先用原始文件读取元数据，避免转码丢失
         exifMeta = await extractExif(file);
-      } catch (error) {
+      } catch {
         try {
           exifMeta = await extractExif(blob);
         } catch (error2) {
@@ -357,10 +334,14 @@ export default function App() {
 
   const handleTemplateChange = (templateId) => {
     setConfig((prev) => getTemplateConfig(prev, templateId));
+    if (templateId !== config.template) setAutoFit(true);
   };
 
   const updateConfig = (key, value) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
+    if (['template', 'framePadding', 'bottomPadding'].includes(key) && config[key] !== value) {
+      setAutoFit(true);
+    }
   };
 
   const updateColors = (colors, paletteId = 'custom') => {

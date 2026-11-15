@@ -71,12 +71,46 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const beforeSwitch = await pixels(classic);
     await page.getByRole('button', { name: '选择照片 portrait.png', exact: true }).click();
     await waitCard(classic); assert.notEqual(await pixels(classic), beforeSwitch);
+    const brand = page.getByPlaceholder('Canon', { exact: true });
+    assert.equal(await brand.inputValue(), '');
+    await brand.fill('PORTRAIT EDIT');
     for (const name of ['landscape.png', 'portrait.png', 'landscape.png']) {
       await page.getByRole('button', { name: `选择照片 ${name}`, exact: true }).click();
     }
     await waitCard(classic);
     assert.equal(await page.locator('.lb-film-frame[data-active="true"] img').getAttribute('alt'), 'landscape.png');
+    assert.equal(await brand.inputValue(), 'PREVIEW TEST');
+    await page.getByRole('button', { name: '选择照片 portrait.png', exact: true }).click();
+    assert.equal(await brand.inputValue(), 'PORTRAIT EDIT');
+    await page.getByRole('button', { name: '选择照片 landscape.png', exact: true }).click();
     console.log('PASS: photo selection and rapid switching do not show stale thumbnails');
+
+    // Layout changes restore fit; metadata-only edits preserve the user's zoom.
+    await page.locator('.lb-export-options > summary').click();
+    const zoom = page.locator('#lb-preview-zoom');
+    const manualZoom = async () => { await zoom.focus(); await zoom.press('End'); assert.equal(await zoom.inputValue(), '3.5'); };
+    const waitForFit = () => page.waitForFunction(() => {
+      const canvas = document.querySelector('.lb-photo-canvas');
+      const viewport = document.querySelector('.lb-viewport').getBoundingClientRect();
+      const expected = Math.min(3.5, Math.max(.2, Math.min((viewport.width - 56) / canvas.width, (viewport.height - 56) / canvas.height)));
+      const transform = document.querySelector('.lb-canvas-position').style.transform;
+      return Math.abs(Number(transform.match(/scale\(([^)]+)\)/)[1]) - expected) < .002;
+    });
+    await manualZoom();
+    await brand.fill('ZOOM EDIT');
+    assert.equal(await zoom.inputValue(), '3.5');
+    await library.getByRole('button', { name: 'Cinema', exact: true }).click();
+    await waitForFit();
+    await classic.click();
+    await waitForFit();
+    for (const max of ['18', '24']) {
+      await manualZoom();
+      const padding = page.locator(`input[type="range"][min="2"][max="${max}"]`);
+      await padding.focus(); await padding.press('ArrowRight');
+      await waitForFit();
+    }
+    await page.locator('.lb-export-options > summary').click();
+    console.log('PASS: template and padding changes restore auto-fit; metadata preserves manual zoom');
 
     // Bounds apply to rotated intermediates too, but not normal preview/export.
     const geometry = await page.evaluate(async () => {
@@ -100,6 +134,18 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     console.log('PASS: portrait/right-side geometry and bounded rotation; full-resolution export unchanged');
 
     await page.locator('.lb-appearance > summary').click();
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.waitForFunction(() => document.documentElement.classList.contains('dark'));
+    await page.locator('.lb-mode-choices label:has(input[value="light"])').click();
+    await page.waitForFunction(() => !document.documentElement.classList.contains('dark'));
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    assert.equal(await page.locator('html').evaluate((el) => el.classList.contains('dark')), false);
+    await page.locator('.lb-mode-choices label:has(input[value="system"])').click();
+    await page.waitForFunction(() => document.documentElement.classList.contains('dark'));
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.waitForFunction(() => !document.documentElement.classList.contains('dark'));
+    console.log('PASS: system theme changes update automatically and explicit light mode takes precedence');
     for (const theme of ['glass', 'memphis', 'collage']) {
       await page.locator(`.lb-theme-choice:has(input[value="${theme}"])`).click();
       await waitCard(classic);
@@ -117,6 +163,18 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const bytes = await fs.readFile(path.join(out, 'export-smoke.jpg'));
     assert.equal(bytes[0], 0xff); assert.equal(bytes[1], 0xd8);
     console.log('PASS: actual app exports a JPEG after using live previews');
+    await page.getByLabel('导入照片', { exact: true }).setInputFiles([
+      { name: 'extra.png', mimeType: 'image/png', buffer: portrait },
+    ]);
+    await page.waitForFunction(() => document.querySelectorAll('.lb-film-frame').length === 3);
+    await brand.fill('LATEST EDIT');
+    await page.getByRole('button', { name: '移除照片 portrait.png', exact: true }).click();
+    await page.getByRole('button', { name: '选择照片 extra.png', exact: true }).click();
+    await page.getByRole('button', { name: '选择照片 landscape.png', exact: true }).click();
+    assert.equal(await brand.inputValue(), 'LATEST EDIT');
+    assert.equal(await page.locator('input[type="range"][min="2"][max="18"]').inputValue(), '6.5');
+    assert.equal(await page.locator('input[type="range"][min="2"][max="24"]').inputValue(), '12.5');
+    console.log('PASS: edits survive importing/removing other photos and switching away and back');
     await page.getByRole('button', { name: '清空图片', exact: true }).click();
     assert.equal(await page.locator('.lb-template-live').count(), 0);
     assert.equal(await page.locator('svg.lb-template-thumbnail').count(), 24);
