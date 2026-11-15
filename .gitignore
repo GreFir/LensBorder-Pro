@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 /output/playwright/
+/output/windows-preview/
 *.local
 
 # Editor directories and files

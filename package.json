@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "icons": "tauri icon src/assets/app-icon.svg --output src-tauri/icons",
+    "build:windows:preview": "node scripts/build-windows-preview.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
