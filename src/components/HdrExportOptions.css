@@ -1,0 +1,6 @@
+.lb-hdr-options { display: grid; gap: 7px; margin-top: 10px; }
+.lb-hdr-options select { width: 100%; min-width: 0; padding: 8px; border: 1px solid currentColor; border-radius: 8px; font: inherit; font-size: 12px; background: Canvas; color: CanvasText; }
+.lb-hdr-options p, .lb-export-feedback { margin: 0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.lb-hdr-options p { opacity: .8; }
+.lb-export-feedback { max-height: 6em; overflow: auto; padding: 4px; }
+.lb-export-feedback[data-error="true"] { font-weight: 700; }

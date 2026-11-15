@@ -1,0 +1,51 @@
+name: HDR export checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'package*.json'
+      - '.github/workflows/hdr-export-checks.yml'
+  push:
+    branches: [feat/hdr-jpeg-auto-export]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hdr-export-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hdr-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: HDR policy, metadata and rotation-contract tests
+        run: node --test tests/hdr.test.mjs
+      - name: Lint HDR implementation
+        run: npx eslint src/hooks/usePhotoExport.js src/utils/hdr src/components/HdrExportOptions.jsx
+      - name: Production web build
+        run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser-test tooling (no runtime dependency)
+        run: |
+          python -m pip install playwright==1.58.0
+          python -m playwright install --with-deps chromium
+      - name: Real Chromium pixel round trips and app exports
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/lensborder-vite.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5173/ >/dev/null && break; sleep 1; done
+          HDR_APP_URL=http://127.0.0.1:5173/ python tests/browser-hdr.py
