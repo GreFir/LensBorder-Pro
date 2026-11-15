@@ -7,7 +7,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const out = path.resolve('test-results/template-previews');
   await fs.mkdir(out, { recursive: true });
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
+  });
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, colorScheme: 'light' });
   page.setDefaultTimeout(15000);
   const errors = [];
