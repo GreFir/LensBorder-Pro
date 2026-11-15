@@ -1,0 +1,137 @@
+name: Windows HDR preview
+run-name: Windows HDR preview - ${{ github.sha }}
+
+on:
+  push:
+    branches: [feat/hdr-jpeg-auto-export]
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package*.json'
+      - '*config*'
+      - '.github/workflows/windows-hdr-preview.yml'
+  workflow_dispatch:
+
+# Test artifacts only: no releases, tags, main-branch writes, or signing secrets.
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-hdr-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-preview:
+    if: github.ref == 'refs/heads/feat/hdr-jpeg-auto-export'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out the exact branch commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: windows-hdr-preview
+      - name: Install locked frontend dependencies
+        run: npm ci
+      - name: Run HDR policy and metadata tests
+        run: node --test tests/hdr.test.mjs
+      - name: Generate isolated preview identity
+        run: |
+          @'
+          const fs = require('node:fs');
+          const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+          config.productName = 'LensBorder-Pro-HDR-Preview';
+          config.identifier = 'com.redwood.lensborder.hdrpreview';
+          config.mainBinaryName = 'lensborder-hdr-preview';
+          config.app.windows = config.app.windows.map(window => ({
+            ...window,
+            title: `LensBorder Pro - HDR Preview (${process.env.GITHUB_SHA.slice(0, 7)})`,
+          }));
+          config.bundle.targets = ['nsis'];
+          config.bundle.windows = {
+            ...config.bundle.windows,
+            nsis: { ...config.bundle.windows?.nsis, installMode: 'currentUser' },
+          };
+          fs.writeFileSync('src-tauri/tauri.preview.conf.json', JSON.stringify(config, null, 2));
+          '@ | node
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build Windows x64 app and installer
+        run: npm run tauri -- build --ci --bundles nsis --config src-tauri/tauri.preview.conf.json -- --locked
+      - name: Collect binaries and provenance
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path preview-artifacts -Force | Out-Null
+          $binary = 'src-tauri/target/release/lensborder-hdr-preview.exe'
+          if (!(Test-Path $binary)) { throw "Missing preview executable: $binary" }
+          Copy-Item $binary preview-artifacts/
+          $installers = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw "Expected one NSIS installer; found $($installers.Count)" }
+          Copy-Item $installers[0].FullName preview-artifacts/
+          Copy-Item docs/hdr-export.md preview-artifacts/HDR-EXPORT.md
+          @"
+          LensBorder Pro - HDR Preview (Windows x64)
+          =========================================
+          Branch: $env:GITHUB_REF_NAME
+          Commit: $env:GITHUB_SHA
+          Build: https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID
+
+          Quick start:
+          - Extract the ZIP and run lensborder-hdr-preview.exe without installing.
+          - Alternatively, run the *-setup.exe installer (current user only).
+          - This preview uses a different app identifier and product name from the
+            regular release. It is not a main-branch release or an auto-update.
+          - Microsoft Edge WebView2 Runtime is required. Keep it updated.
+          - These test binaries are unsigned; Windows may show a reputation warning.
+          - SHA256SUMS.txt lists the checksums of both executables.
+
+          Testing HDR:
+          - Open Preview and Export / Dynamic range. Auto is the default.
+          - Test a supported gain-map HDR JPEG and a normal SDR photo, individually
+            and together in a batch. Output is finished JPEG, not 16-bit intermediates.
+          - Preview is SDR; inspect exported HDR on a compatible viewer and display.
+          - Unsupported HDR containers or an older WebView2 should report an error
+            rather than silently claiming an SDR export is HDR.
+          - See HDR-EXPORT.md for the exact supported input formats and limitations.
+          "@ | Set-Content preview-artifacts/README.txt -Encoding utf8
+          Get-ChildItem preview-artifacts/*.exe | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content preview-artifacts/SHA256SUMS.txt -Encoding utf8
+          @"
+          ## Windows x64 HDR preview
+          Source commit: $env:GITHUB_SHA
+          Download the artifact below. It contains a standalone executable, a
+          current-user NSIS installer, checksums, and the HDR support notes.
+          The preview has a separate app identity. No main merge or release was performed.
+          "@ | Add-Content $env:GITHUB_STEP_SUMMARY
+      - name: Upload Windows preview package
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LensBorder-Pro-HDR-Preview-windows-x64-${{ github.sha }}
+          path: preview-artifacts/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+      - name: Link the download in the run summary
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        run: '"Download: $env:ARTIFACT_URL" | Add-Content $env:GITHUB_STEP_SUMMARY'
