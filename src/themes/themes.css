@@ -209,6 +209,8 @@ html.dark[data-ui-theme='collage'] .lb-interface {
 .lb-interface aside[aria-expanded] :is(input[type='text'],input[type='number'],textarea,select) { color: var(--lb-text); background: var(--lb-well); border: var(--lb-line-width) solid var(--lb-line); border-radius: var(--lb-small-radius); box-shadow: var(--lb-inset); }
 .lb-interface aside[aria-expanded] input::placeholder, .lb-interface aside[aria-expanded] textarea::placeholder { color: var(--lb-muted); opacity: .85; }
 .lb-interface aside[aria-expanded] button { border-radius: var(--lb-small-radius); }
+.lb-interface aside[aria-expanded] .lb-settings-toggle:hover { background: var(--lb-hover); }
+.lb-interface aside[aria-expanded='false'] .lb-settings-toggle { border-radius: 50%; }
 .lb-interface aside[aria-expanded] button[role='switch'] { background: var(--lb-card); color: var(--lb-text); border-color: var(--lb-line); box-shadow: var(--lb-control-shadow); }
 .lb-interface aside[aria-expanded] button[role='switch'] > span:last-child { background: var(--lb-well); border: 1px solid var(--lb-line); box-shadow: var(--lb-inset); }
 .lb-interface aside[aria-expanded] button[role='switch'][aria-checked='true'] > span:last-child { background: var(--lb-accent); }

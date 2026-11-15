@@ -107,24 +107,23 @@ export default function SettingsPanel({
             : 'flex h-full items-center justify-center'
         }`}
       >
-        {isOpen ? (
+        {isOpen && (
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
             <SlidersHorizontal size={16} />
             <span>参数设置</span>
           </div>
-        ) : (
-          <SlidersHorizontal size={16} className="text-slate-600 dark:text-slate-200" />
         )}
 
         <button
           type="button"
           onClick={onToggle}
-          className={`rounded-full p-1 text-slate-500 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900 ${
+          className={`lb-settings-toggle inline-flex items-center justify-center rounded-full p-1 text-slate-500 transition dark:text-slate-300 ${
             isOpen ? '' : 'absolute inset-0'
           }`}
+          aria-expanded={isOpen}
           aria-label={isOpen ? '收起参数面板' : '展开参数面板'}
         >
-          {isOpen ? <X size={16} /> : null}
+          {isOpen ? <X size={16} /> : <SlidersHorizontal size={16} />}
         </button>
       </div>
 
