@@ -1,7 +1,7 @@
 import { TEMPLATES } from '../constants/templates';
 import { useUiTheme } from '../themes/context';
 import { UI_STYLES } from '../themes/preferences';
-import { Icon } from '../themes/Icons';
+import { BrandMark, Icon } from '../themes/Icons';
 import AppearancePanel from './AppearancePanel';
 import TemplateThumbnail from './TemplateThumbnail';
 import HdrExportOptions from './HdrExportOptions';
@@ -19,7 +19,7 @@ export default function TemplatePanel({
   return (
     <aside className="lb-sidebar" data-collapsed={isCollapsed} aria-label="模板与素材">
       <header className="lb-brand">
-        <span className="lb-brand-mark"><Icon name="aperture" size={25} /></span>
+        <span className="lb-brand-mark" role="img" aria-label="LensBorder 相纸边框标志"><BrandMark /></span>
         {!isCollapsed && <div className="lb-brand-copy"><strong>LensBorder<span> Pro</span></strong><small>THE PHOTO FINISHING STUDIO</small></div>}
         <button type="button" className="lb-icon-button lb-collapse" onClick={onToggleCollapse} aria-label={isCollapsed ? '展开左侧面板' : '收起左侧面板'} title={isCollapsed ? '展开左侧面板' : '收起左侧面板'}><Icon name="chevron" size={16} /></button>
       </header>

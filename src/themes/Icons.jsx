@@ -26,6 +26,18 @@ export function Icon({ name, size = 18, className = '' }) {
   return <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" className={`lb-icon ${className}`}>{paths[name] || paths.image}</svg>;
 }
 
+// A photographic print with a generous mat and an offset backing sheet.
+export function BrandMark() {
+  return (
+    <svg className="lb-brand-symbol" viewBox="0 0 32 32" width="28" height="28" fill="none" aria-hidden="true" focusable="false">
+      <path d="M3 10v16a3 3 0 0 0 3 3h16" stroke="currentColor" strokeOpacity=".4" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 3a3 3 0 0 0-3 3v17a3 3 0 0 0 3 3h17a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3H9Zm0 3h17v15H9V6Z" fill="currentColor" fillRule="evenodd" />
+      <path d="m9 18 5-6 5 7 3-4 4 4v2H9v-3Z" fill="currentColor" />
+      <circle cx="22" cy="10" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function ThemeSwatch({ style }) {
   return (
     <svg className={`lb-theme-swatch lb-swatch-${style}`} viewBox="0 0 120 72" aria-hidden="true" focusable="false">
