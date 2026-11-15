@@ -49,7 +49,9 @@ export const matchGpxPoint = (points, timestamp, maxGapMs = 5 * 60 * 1000) => {
   }
   const closest = [before, after].filter(Boolean).sort((a, b) =>
     Math.abs(a.time - timestamp) - Math.abs(b.time - timestamp))[0];
-  return closest && Math.abs(closest.time - timestamp) <= maxGapMs ? closest : null;
+  return closest && Math.abs(closest.time - timestamp) <= maxGapMs
+    ? { lat: closest.lat, lon: closest.lon }
+    : null;
 };
 
 export const withGpxOverlay = (config, point) => ({
