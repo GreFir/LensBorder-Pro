@@ -4,16 +4,18 @@ import { UI_STYLES } from '../themes/preferences';
 import { Icon } from '../themes/Icons';
 import AppearancePanel from './AppearancePanel';
 import TemplateThumbnail from './TemplateThumbnail';
+import HdrExportOptions from './HdrExportOptions';
 
 const clampZoom = (value) => Math.min(3.5, Math.max(0.2, value));
 
 export default function TemplatePanel({
   config, exifStatus, isProcessing, onUpload, onTemplateChange, zoom, onZoomChange,
-  hasImage, image, meta, onDownload, exportQuality, onExportQualityChange,
+  hasImage, image, meta, onDownload, exportQuality, onExportQualityChange, photoExport,
   themeMode, onThemeModeChange, isCollapsed, onToggleCollapse,
 }) {
   const { style } = useUiTheme();
   const currentStyle = UI_STYLES.find((item) => item.id === style);
+  const rangeLabel = { auto: '自动', sdr: 'SDR', hdr: 'HDR' }[photoExport.mode];
   return (
     <aside className="lb-sidebar" data-collapsed={isCollapsed} aria-label="模板与素材">
       <header className="lb-brand">
@@ -47,11 +49,11 @@ export default function TemplatePanel({
       <footer className="lb-sidebar-footer">
         {isCollapsed ? <>
           <button type="button" className="lb-icon-button" onClick={onToggleCollapse} aria-label="展开面板以设置界面外观" title="界面外观"><Icon name="palette" /></button>
-          <button type="button" className="lb-icon-button lb-primary" disabled={!hasImage} onClick={onDownload} aria-label="导出当前图片" title="导出当前图片"><Icon name="download" /></button>
+          <button type="button" className="lb-icon-button lb-primary" disabled={!hasImage || photoExport.busy} onClick={onDownload} aria-label="导出当前图片" title="导出当前图片"><Icon name="download" /></button>
         </> : <>
           <AppearancePanel themeMode={themeMode} onThemeModeChange={onThemeModeChange} />
           <details className="lb-export-options">
-            <summary><Icon name="sliders" size={16} /><span>预览与导出</span><span className="lb-summary-value">JPEG · {Math.round(exportQuality * 100)}%</span><Icon name="chevron" size={13} /></summary>
+            <summary><Icon name="sliders" size={16} /><span>预览与导出</span><span className="lb-summary-value">{rangeLabel} · {Math.round(exportQuality * 100)}%</span><Icon name="chevron" size={13} /></summary>
             <div className="lb-export-options-body">
               <label htmlFor="lb-preview-zoom">预览缩放<output>{Math.round(zoom * 100)}%</output></label>
               <div className="lb-zoom-control">
@@ -60,12 +62,14 @@ export default function TemplatePanel({
                 <button type="button" className="lb-icon-button" onClick={() => onZoomChange(clampZoom(zoom + 0.1))} aria-label="放大预览"><Icon name="plus" size={13} /></button>
               </div>
               <label htmlFor="lb-export-quality">导出质量<output>{Math.round(exportQuality * 100)}%</output></label>
-              <input id="lb-export-quality" type="range" min="0.5" max="1" step="0.01" value={exportQuality} onChange={(event) => onExportQualityChange(Number(event.target.value))} />
+              <input id="lb-export-quality" type="range" min="0.5" max="1" step="0.01" value={exportQuality} onChange={(event) => onExportQualityChange(Number(event.target.value))} disabled={photoExport.busy} />
+              <HdrExportOptions mode={photoExport.mode} onChange={photoExport.setMode} source={photoExport.source} disabled={photoExport.busy} />
             </div>
           </details>
-          <button type="button" className="lb-button lb-primary lb-export" disabled={!hasImage} onClick={onDownload}><Icon name="download" size={16} /><span>导出高清图</span><small>JPEG</small></button>
+          <button type="button" className="lb-button lb-primary lb-export" disabled={!hasImage || photoExport.busy} onClick={onDownload}><Icon name="download" size={16} /><span>{photoExport.busy ? '正在导出…' : '导出成品图'}</span><small>JPEG</small></button>
           <div className="lb-edition"><Icon name={style} size={12} />{currentStyle.english}<span>LOCAL FIRST</span></div>
         </>}
+        <p className={isCollapsed ? 'lb-sr-only' : 'lb-export-feedback'} role="status" aria-live="polite" data-error={photoExport.error}>{photoExport.status}</p>
       </footer>
     </aside>
   );

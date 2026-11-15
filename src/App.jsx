@@ -10,6 +10,8 @@ import { parseGpx, parseCameraTime, matchGpxPoint, withGpxOverlay } from './util
 import { DEFAULT_VISIBILITY } from './constants/metadataFields';
 import { getPaletteById } from './constants/palettes';
 import { extractImagePalette } from './utils/colorUtils';
+import usePhotoExport from './hooks/usePhotoExport';
+import { preparePhotoSource, rememberPhotoSource } from './utils/hdr/source.js';
 
 let heic2anyLoader = null;
 const loadHeicConverter = async () => {
@@ -43,58 +45,6 @@ const getInitialThemeMode = () => {
     console.warn('Read theme mode failed:', error);
   }
   return 'system';
-};
-
-const getExportFileName = () => `lensborder_${Date.now()}.jpg`;
-const getNamedExportFileName = (baseName) => {
-  const safe = (baseName || 'lensborder').replace(/\.[^.]+$/, '').slice(0, 80);
-  return `${safe || 'lensborder'}_border.jpg`;
-};
-
-const createJpegBlob = (canvas, quality) =>
-  new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error('Export blob is empty'));
-          return;
-        }
-        resolve(blob);
-      },
-      'image/jpeg',
-      quality
-    );
-  });
-
-const saveBlobWithAnchor = (blob, fileName) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.download = fileName;
-  link.href = url;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
-const saveBlobWithFilePicker = async (blob, fileName) => {
-  if (typeof window === 'undefined' || typeof window.showSaveFilePicker !== 'function') {
-    return false;
-  }
-
-  const handle = await window.showSaveFilePicker({
-    suggestedName: fileName,
-    types: [
-      {
-        description: 'JPEG image',
-        accept: { 'image/jpeg': ['.jpg', '.jpeg'] },
-      },
-    ],
-  });
-  const writable = await handle.createWritable();
-  await writable.write(blob);
-  await writable.close();
-  return true;
 };
 
 const getDefaultConfig = () => {
@@ -171,7 +121,6 @@ export default function App() {
   const [themeMode, setThemeMode] = useState(() => getInitialThemeMode());
   const [isSystemDark, setIsSystemDark] = useState(() => getSystemDarkPreference());
   const [exportQuality, setExportQuality] = useState(DEFAULT_EXPORT_QUALITY);
-  const [supportsHdr, setSupportsHdr] = useState(false);
   const resolvedTheme = themeMode === 'system' ? (isSystemDark ? 'dark' : 'light') : themeMode;
 
   const [meta, setMeta] = useState(() => createEmptyMeta());
@@ -181,6 +130,7 @@ export default function App() {
   const [gpxStatus, setGpxStatus] = useState('');
 
   const [config, setConfig] = useState(() => getDefaultConfig());
+  const photoExport = usePhotoExport({ images, currentImageId, image, imageInfo, config, meta, quality: exportQuality });
 
   useEffect(() => {
     if (!currentImageId) return;
@@ -202,7 +152,6 @@ export default function App() {
   useEffect(() => {
     if (!image || !canvasRef.current) return;
     const ctx = getRender2DContext(canvasRef.current);
-    setSupportsHdr(false);
     if (!ctx) return;
 
     const maxDim = Math.max(image.width, image.height);
@@ -311,7 +260,8 @@ export default function App() {
   };
 
   const loadImageFile = async (file) => {
-    let blob = file;
+    const source = await preparePhotoSource(file);
+    let blob = source.previewBlob || file;
     const ext = (file.name || '').toLowerCase();
     const isHeic =
       file.type === 'image/heic' || file.type === 'image/heif' || ext.endsWith('.heic') || ext.endsWith('.heif');
@@ -343,13 +293,17 @@ export default function App() {
     }
 
     const img = new Image();
-    const loaded = await new Promise((resolve, reject) => {
-      img.onload = () => resolve(true);
-      img.onerror = reject;
-      img.src = url;
-    });
-
-    if (!loaded) throw new Error('Image load failed');
+    try {
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+      });
+    } catch (error) {
+      URL.revokeObjectURL(url);
+      throw error;
+    }
+    rememberPhotoSource(img, source);
 
     const palette = extractImagePalette(img);
     const baseConfig = getDefaultConfig();
@@ -514,6 +468,8 @@ export default function App() {
 
   const handleRemoveImage = (id) => {
     syncCurrentEntry();
+    const removed = images.find((item) => item.id === id);
+    if (removed) URL.revokeObjectURL(removed.url);
     const remaining = images.filter((item) => item.id !== id);
     setImages(remaining);
 
@@ -537,6 +493,7 @@ export default function App() {
   };
 
   const handleClearImages = () => {
+    images.forEach((entry) => URL.revokeObjectURL(entry.url));
     setImages([]);
     setCurrentImageId(null);
     setImage(null);
@@ -606,79 +563,6 @@ export default function App() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!image) return;
-
-    const exportCanvas = document.createElement('canvas');
-    const exportCtx = getRender2DContext(exportCanvas);
-    if (!exportCtx) return;
-
-    renderFrame(exportCtx, image, config, meta, { scale: 1, preview: false });
-
-    try {
-      const fileName = getExportFileName();
-      const blob = await createJpegBlob(exportCanvas, exportQuality);
-      const savedByPicker = await saveBlobWithFilePicker(blob, fileName);
-      if (!savedByPicker) {
-        saveBlobWithAnchor(blob, fileName);
-      }
-    } catch (error) {
-      if (error?.name === 'AbortError') {
-        return;
-      }
-      console.error('Export failed:', error);
-      try {
-        const blob = await createJpegBlob(exportCanvas, exportQuality);
-        saveBlobWithAnchor(blob, getExportFileName());
-      } catch (fallbackError) {
-        console.error('Export fallback failed:', fallbackError);
-      }
-    }
-  };
-
-  const renderEntryToBlob = async (entry) => {
-    const exportCanvas = document.createElement('canvas');
-    const exportCtx = getRender2DContext(exportCanvas);
-    if (!exportCtx) throw new Error('Canvas unavailable');
-    renderFrame(exportCtx, entry.image, entry.config, entry.meta, { scale: 1, preview: false });
-    return createJpegBlob(exportCanvas, exportQuality);
-  };
-
-  const handleExportAll = async () => {
-    if (!images.length) return;
-    syncCurrentEntry();
-    let dirHandle = null;
-
-    if (typeof window !== 'undefined' && window.showDirectoryPicker) {
-      try {
-        dirHandle = await window.showDirectoryPicker();
-      } catch (error) {
-        if (error?.name !== 'AbortError') {
-          console.warn('Directory picker not available, fallback to downloads.', error);
-        } else {
-          return;
-        }
-      }
-    }
-
-    for (const entry of images) {
-      try {
-        const blob = await renderEntryToBlob(entry);
-        const fileName = getNamedExportFileName(entry.name);
-        if (dirHandle) {
-          const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-          const writable = await fileHandle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-        } else {
-          saveBlobWithAnchor(blob, fileName);
-        }
-      } catch (error) {
-        console.error(`Export failed for ${entry.name}:`, error);
-      }
-    }
-  };
-
   return (
     <div
       className="relative h-screen overflow-hidden bg-gradient-to-br from-stone-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100"
@@ -708,9 +592,10 @@ export default function App() {
             zoom={zoom}
             onZoomChange={handleZoomChange}
             hasImage={!!image}
-            onDownload={handleDownload}
+            onDownload={photoExport.exportCurrent}
             exportQuality={exportQuality}
             onExportQualityChange={setExportQuality}
+            photoExport={photoExport}
             themeMode={themeMode}
             onThemeModeChange={setThemeMode}
             isCollapsed={templatePanelCollapsed}
@@ -725,7 +610,7 @@ export default function App() {
             onZoomChange={handleZoomChange}
             autoFit={autoFit}
             imageInfo={imageInfo}
-            supportsHdr={supportsHdr}
+            supportsHdr={false}
           />
 
             <SettingsPanel
@@ -757,7 +642,8 @@ export default function App() {
           onToggle={() => setTrayOpen((prev) => !prev)}
           onSelect={handleSelectImage}
           onApplyToOthers={handleApplyConfigToOthers}
-          onExportAll={handleExportAll}
+          onExportAll={photoExport.exportAll}
+          exportBusy={photoExport.busy}
           onRemove={handleRemoveImage}
           onClearAll={handleClearImages}
         />
